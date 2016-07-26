@@ -1,0 +1,1000 @@
+<< eval = TRUE, echo=FALSE,message=FALSE,fig.pos='h',results='asis' >>=
+#  Copyright 2016, INSEAD
+#  by T. Evgeniou, Theo Vermaelen
+#  Dual licensed under the MIT or GPL Version 2 licenses.
+
+#dev.off();
+#library(knitr); knit2pdf('board_diversity.Rnw', texi2dvi='texi2dvi'); file.remove(paste("board_diversity",c(".aux",".tex",".blg",".bbl",".log",".out"),sep=""))
+#dir.create("tmpfiles") # need to comment this if the directory already exists
+# Then to make it into Word:
+# system("pandoc -s board_diversity.tex --bibliography=bibliography.bib --number-sections --reference-links -o theo.docx")
+
+if (!exists("generate_all_appendices") & 1){ # Takes time to load the data, so if already in memory don't load again...
+  rm(list=ls()) # Clean up the memory, if we want to rerun from scratch
+  project_var_name = "gender_score" 
+  project.main.IV.variable.name = "Gender (Score)"
+} 
+
+generate_all_data = 0 # set this to 1 if the data need to be re-generated from scratch
+generate_rnw_data = 0 # set this to 1 to generate the .Rnw data
+
+if (generate_all_data == 1){
+  source("create_board_data.R")
+}
+if (generate_rnw_data == 1){
+  source("board_diversity.R")
+} else {
+  load(paste("board_diversity.",project_var_name ,".Rdata", sep=""))
+}
+
+source("../Financelibraries/lib_helpers.R", chdir=TRUE)
+source("../Financelibraries/latex_code.R")
+source("../FinanceData/rawdata_fama_french/ff_industries_sic.R")
+source("Paper_global_parameters.R")
+
+firstyear = as.character(min(format(BUYBACK_DATA_PROJECT$DATASET$SDC$Event.Date,"%Y")))
+lastyear = as.character(max(format(BUYBACK_DATA_PROJECT$DATASET$SDC$Event.Date,"%Y")))
+
+#####
+min_year = format(min(BUYBACK_DATA_PROJECT$DATASET$SDC$Event.Date[!is.na(BUYBACK_DATA_PROJECT$DATASET$boardex$gender)]),"%Y")
+max_year = format(max(BUYBACK_DATA_PROJECT$DATASET$SDC$Event.Date[!is.na(BUYBACK_DATA_PROJECT$DATASET$boardex$gender)]),"%Y")
+
+
+inline_hook <- function (x) {
+  if (is.numeric(x)) {
+    # ifelse does a vectorized comparison
+    # If integer, print without decimal; otherwise print two places
+    res <- ifelse(x == round(x),
+                  # use comma for 1000s
+                  sprintf("%s", prettyNum(x, big.mark=",")),
+                  sprintf("%.2f", x) 
+    )
+    paste(res, collapse = ", ")
+  } else {
+    x
+  }
+}
+knit_hooks$set(inline = inline_hook)
+
+@
+
+<<   eval = TRUE, echo=FALSE,message=FALSE,fig.pos='h',results='asis' >>=
+Daily_Returns_ini  = Daily_Returns # Just to keep the initial ones
+@
+
+\documentclass[12pt]{article}
+
+% DEFAULT PACKAGE SETUP
+\usepackage{setspace,graphicx,epstopdf,amsmath,amsfonts,amssymb,amsthm,versionPO,tabularx,ltxtable}
+\usepackage{marginnote,datetime,enumitem,subfigure,rotating,fancyvrb,graphics,siunitx}
+\usepackage{capt-of,pdflscape}
+\usepackage{hyperref,float}
+\usepackage[longnamesfirst]{natbib}
+\usepackage{booktabs}% http://ctan.org/pkg/booktabs
+
+\usdate
+
+%\usepackage[dvipsnames]{xcolor} % Refer to colors by name
+%\usepackage[colorlinks=true,urlcolor=blue,linkcolor=Green,citecolor=RedViolet]{hyperref}           
+%\usepackage{xcolor}
+%\usepackage{colortbl}
+%\usepackage{changepage}
+%\usepackage{adjustbox}
+%\usepackage{multirow}
+%\usepackage{longtable}
+
+% These next lines allow including or excluding different versions of text
+% using versionPO.sty
+
+\excludeversion{notes}  	% Include notes?
+\includeversion{links}          % Turn hyperlinks on?
+
+% Turn off hyperlinking if links is excluded
+\iflinks{}{\hypersetup{draft=true}}
+
+\usepackage[margin=1in,top=1.5in,bottom=1.5in]{geometry}%
+\usepackage[disable]{todonotes}%
+%\linespread{1.3}
+\onehalfspacing      % Use 1.5 spacing
+
+% Allow todonotes inside footnotes without blowing up LaTeX
+% Next command works but now notes can overlap. Instead, we'll define 
+% a special footnote note command that performs this redefinition.
+%\renewcommand{\marginpar}{\marginnote}%
+
+% Save original definition of \marginpar
+\let\oldmarginpar\marginpar
+
+% Workaround for todonotes problem with natbib (To Do list title comes out wrong)
+\makeatletter\let\chapter\@undefined\makeatother % Undefine \chapter for todonotes
+
+% Define note commands
+\newcommand{\smalltodo}[2][] {\todo[caption={#2}, size=\scriptsize, fancyline, #1] {\begin{spacing}{.5}#2\end{spacing}}}
+\newcommand{\rhs}[2][]{\smalltodo[color=green!30,#1]{{\bf RS:} #2}}
+\newcommand{\rhsnolist}[2][]{\smalltodo[nolist,color=green!30,#1]{{\bf RS:} #2}}
+\newcommand{\rhsfn}[2][]{%  To be used in footnotes (and in floats)
+\renewcommand{\marginpar}{\marginnote}%
+\smalltodo[color=green!30,#1]{{\bf RS:} #2}%
+\renewcommand{\marginpar}{\oldmarginpar}}
+%\newcommand{\textnote}[1]{\ifnotes{{\noindent\color{red}#1}}{}}
+\newcommand{\textnote}[1]{\ifnotes{{\colorbox{yellow}{{\color{red}#1}}}}{}}
+
+% Command to start a new page, starting on odd-numbered page if twoside option 
+% is selected above
+\newcommand{\clearRHS}{\clearpage\thispagestyle{empty}\cleardoublepage\thispagestyle{plain}}
+
+% Number paragraphs and subparagraphs and include them in TOC
+\setcounter{tocdepth}{2}
+
+% JF-specific includes:
+\usepackage{indentfirst} % Indent first sentence of a new section.
+\usepackage{endnotes}    % Use endnotes instead of footnotes
+\usepackage{jf}          % JF-specific formatting of sections, etc.
+\usepackage[labelfont=bf,labelsep=period,justification=centering]{caption}   % Format figure captions
+\captionsetup[table]{labelsep=newline,labelfont=bf,textfont=bf}
+\captionsetup[figure]{labelfont=bf,justification=justified}
+\pagestyle{myheadings}
+
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{assumption}{Assumption}[section]
+\newtheorem{proposition}{Proposition}
+\newtheorem{conjecture}{Conjecture}
+\newtheorem{lemma}{Lemma}[section]
+\newtheorem{corollary}{Corollary}
+\newtheorem{condition}{Condition}
+
+\begin{document}
+
+\setlist{noitemsep}  % Reduce space between list items (itemize, enumerate, etc.)
+
+% Use endnotes instead of footnotes - redefine \footnote command
+
+\title{\textbf{Share Buybacks and Gender Diversity}}%\footnotetext{}
+
+\author{\uppercase{ Theodoros Evgeniou} and \uppercase{Theo Vermaelen}\thanks{INSEAD, Bd de Constance, 77300 Fontainebleau, France, phone: +33(0)1 6072 4000, e-mail:   \href{mailto:theodoros.evgeniou@insead.edu}{theodoros.evgeniou@insead.edu}, and \href{mailto:theo.vermaelen@insead.edu}{theo.vermaelen@insead.edu}. }}
+
+
+\date{\today}              % No date for final submission
+
+% Create title page with no page number
+
+\renewcommand{\thefootnote}{\fnsymbol{footnote}}
+
+\singlespacing
+
+\maketitle
+
+\vspace{-.2in}
+\begin{abstract}
+\noindent  We find that board gender diversity increases the likelihood that firms announce a buyback but both short-term and long-term excess returns are significantly smaller when there are more females on the board. Introducing control variables that proxy for undervaluation, agency costs and other benefits from increasing leverage, eliminates the gender effect in short term but not in long-term returns. Hence firms with boards with low female representation are more involved in market timing. Our results are consistent with past research that finds that male executives make superior returns than females from insider trading.   
+\end{abstract}
+\vspace{2cm}
+
+\noindent All source code as well as an interactive online tool to explore data variations and robustness analyses of all results in this paper is available at \href{http://tevgeniou.github.io/BoardDiversityBuybacks/}{tevgeniou.github.io/BoardDiversityBuybacks}.
+
+\medskip
+
+\medskip
+
+\thispagestyle{empty}
+
+\clearpage
+
+\onehalfspacing
+\setcounter{footnote}{0}
+\renewcommand{\thefootnote}{\arabic{footnote}}
+\setcounter{page}{1}
+
+\doublespacing
+
+\section{Introduction}
+\label{sec:Introduction}
+
+There is a growing literature testing whether women on boards are better or worse for shareholder value.  In order to avoid the endogeneity problem many studies focus on exogenous shocks such as the introduction of mandatory quotas [e.g., \citep{FarrellHersch2005,AdamsFerreira2009,AhernDittmar2012,MatsaMiller2013,Eckboetal2016}]. All these studies find no effect or a negative effect of mandatory quotas on shareholder value.  \cite{AhernDittmar2012} explain the negative stock market response to mandatory quotas in Norway by the perception that regulation results in board members with inferior experience and skill.  Other explanations include the suggestion that women care more about stakeholder value rather than shareholder value.  For example, they are more reluctant than men to approve layoffs \citep{MatsaMiller2013}. \cite{AdamsFerreira2009} argue that greater gender diversity could lead to overmonitoring in firms with strong corporate governance and ultimately destroy shareholder value.  
+
+A second stream of research tests whether corporate decisions create more or less shareholder value when there are more women in the board room. For example, \cite{HuangKisgen2013} examine three corporate decisions: acquisitions, equity issuance and debt issuance. They find that acquisitions as well as debt issues made by female executives generate larger announcement returns. \cite{Levietal2014} focus on acquisitions and reach similar conclusions, i.e. firms with female directors are less likely to make value destroying acquisitions. They interpret this result as evidence that markets believe that {\it men are overconfident} and are therefore more likely to overestimate the NPV of their decisions.  In other words, they are over-optimistic, i.e. they overestimate cash flows or underestimate risk \citep{Dittrichetal2005}. 
+
+The purpose of this paper is to examine the impact of gender on another corporate decision, share buybacks, and further examine possible relations between gender diversity and shareholder value creation. In the United States the board of directors has the power to authorize share buyback programs. In this paper we test whether board composition, in particular the percentage of women on the board (hereafter also called ''diversity''), influences the likelihood that a firm announces a buyback, as well the consequences of the buyback for shareholder value. Note that a buyback can be driven by different motivations such as reducing agency costs of free cash flow, increasing leverage to benefit from tax savings, signaling undervaluation, fighting takeover bids or counter the dilution effects of stock options [e.g., \cite{Dittmar2000}]. None of these theories predict long-term excess returns and there is no obvious reason why short-term (announcement) returns should be influenced by gender. 
+
+However, past research [e.g., \citep{Dann1981,DittmarField2015,Vermaelen1981,IkenberryLakonishokVermaelen1995,PeyerVermaelen2009,Evgeniouetal2016}] has shown that share repurchase authorization announcements are not only followed by short term but also long-term positive excess returns. The long-term excess returns are typically interpreted as evidence of the ability of managers to time the market: companies buy back stock because the management believes they are smarter than the market, which requires confidence (or optimism) in the same way as buying another company does. In effect \cite{Andreouetal2016} employ press-based measures of overconfidence and find that long-term abnormal returns following share repurchases are substantially smaller when they are made by executives identified as overconfident. If confidence also depends on gender, we may expect that post repurchase announcement excess returns may relate to board gender diversity, too.
+
+\cite{BarberOdean2001} find evidence consistent with male overconfidence: among online retail investors, males trade more frequently than females and earn larger negative excess returns. In non-finance contexts, \cite{Svenson1981} report male over-confidence for driving ability. So according to the {\it male overconfidence hypothesis}, when an all-men board announces a share buyback program it is less likely that the firm is undervalued, i.e, males will make more mistakes. So this hypothesis predicts that when more women are on the board the buyback will be followed by larger positive long-term excess returns (H1). 
+
+A share repurchase can be considered as a form of collective insider buying, to the extent that insiders own shares in the company. Indeed, many firms apply the same blackout period (when all trades are forbidden) as they do for insider trading.  \cite{HuangKisgen2013} report that women are less involved in buying shares of their own company and exercise options early. \cite{MalmendierTate2005} interpret such behavior as (female) lack of confidence as it shows that they don't want to be exposed to the idiosyncratic risk of their firms. However, whether this result can be interpreted as a ''lack of female confidence'' or ''male overconfidence'' depends on the profitability of the trades. If men typically lose money when they buy shares in their own company and women don't, the interpretation of ''male overconfidence'' is supported. However, \cite{Incietal2016} report evidence inconsistent with the ''male overconfidence'' explanation: they find that both female and male executives make profits from insider trading but men earn superior returns and trade more than females. This is consistent with the ''{\it male information advantage hypothesis}''. \cite{Incietal2016} argue that women have less access to high quality information because they are not part of the predominantly male social network.  Or to put it differently, women have less access to information useful to judge whether the company's stock is undervalued. So, consistent with the evidence of low profitability of female insider trading, this second alternative hypothesis predicts that share buybacks by firms where more women are on the board will be followed by smaller long-term excess returns (H2).
+
+Finally, our analysis can shed some light on whether female executives are more risk averse than men. One argument for mandatory gender quotas on bank boards, made after the financial crisis, is that as women are more risk averse the crisis could have been avoided had there been more women on bank boards.\footnote{For example, this argument was made by Michel Barnier, Europe's internal markets commissioner to justify quotas \citep{Treanor2011}.}  A repurchase increases leverage and therefore risk. So, if women are more risk averse, the {\it risk aversion hypothesis} (H3) predicts that boards with larger percentage of females would be more reluctant to repurchase stock. Numerous studies in the Psychology literature [e.g., \cite{Byrnesetal1999}] document that women are typically more risk-averse. However, as pointed out by \cite{AdamsRagunathan2015}, generalizing from the general population to the executive ranks may be misleading. \cite{AdamsFunk2012} in a survey of the population of directors in Sweden find that female directors are less risk averse than male directors in their sample. On the other hand \cite{HuangKisgen2013} find  evidence consistent with the risk aversion hypothesis: when females replace males on boards, the likelihood of acquisitions, leverage and debt issuance fall. Note that, in contrast to H1 and H2, this risk-aversion hypothesis makes no predictions about long-term excess return differences between male and female dominated boards.
+
+Our first finding is that long-term post buyback announcement abnormal returns are different for firms with high diversity boards than for those with low diversity boards. Consistent with H2, but not consistent with H1, on average, buybacks in firms with more extensive female board representation are followed by smaller long-term excess returns, employing the \cite{FamaFrench2015} 5-factor model as a benchmark to measure ''abnormal'' returns. At the same time, we find  evidence contradicting H3: firms with more female board representation are more, not less likely, to announce buyback programs.  So our results support the hypothesis than companies with more female board representation are more likely to repurchase shares but that it is also less likely for their buyback announcements to time the market.  
+
+Of course, this market timing result could simply reflect that companies with female boards, ex ante, appeared  to be priced more efficiently.  Although we find  that proxies for the likelihood of undervaluation proposed in the buyback literature [e.g., \citep{PeyerVermaelen2009,Evgeniouetal2016}] are statistically significantly smaller when there are more women on the board, the post announcement returns are still significantly lower for the high diversity companies also after controlling for these proxies. These ex-ante publicly available indicators of undervaluation also have lower predictive power when gender diversity is high. This is consistent with the ''{\it male information advantage}'' hypothesis: male executives can make more informed decisions about whether a stock is undervalued using also other (inside) information provided by their broader male information network. For example, one of the (publicly available) undervaluation indicators is the prior returns of the stock, i.e. beaten up stocks are more likely to be undervalued. But sometimes such low returns may be deserved and do not reflect undervaluation. Making this distinction can be easier if more (inside) information is available. Note that, ceteris paribus, short term excess returns are not influenced by gender. So only the ability to time the market by buying undervalued stock is affected by gender.
+
+Our findings are  consistent with the ''{\it male information advantage hypothesis}'', which implies that it may be harder for female board members to judge whether a company is undervalued given more limited information availability. They may also indicate that women are less interested in market timing. After all, as share buybacks are an indirect way of insider buying, some people may find such behavior unethical (although not illegal). \cite{Czirakietal2016} find that insider trading and market timing through share buybacks and equity issues are complimentary: insiders tend to buy (sell) more shares prior to open market buybacks (seasoned equity offerings). Moreover, the larger the extent of insider buying prior to share buyback announcement, the larger the post-buyback excess returns.
+
+If women are on average more ethical then men\footnote{Evidence that women are more ethical in business across a wide range of practices, including being more critical of ethical issues and less loyal to the company in questionable situations, is provided by Ford and Richardson (1994)  and Craft (2013).}, they may be less interested in using company cash to buy undervalued stock from uninformed investors. Note that this ''moral'' argument could also explain the relatively smaller profits from female insider trading reported by \cite{Incietal2016}). \cite{Scarlatetal2015} also find that insider trading profits decline following switches from male-to-female CEOs. They argue that female executives change the corporate culture in the firm and encourage more ethical behavior. In their review of 30 years of research on the determinants of business ethics \cite{KishGephartetal2010} conclude that although the relationship remains unclear, the weight of the empirical evidence and theory supports the hypothesis that women are less likely than men to make unethical decisions. So our results are also consistent with alternative hypothesis (H2'): women are more ethical than men and they consider repurchasing stock to take advantage of undervaluation as an unethical activity. It could also mean that firms with higher ethical standards tend to hire more women and discourage share repurchases driven market timing. However, when we examine the long-term performance after seasoned equity offerings we find that boards with significant female representation tend to issue significantly undervalued stock, something that is difficult to justify on the basis of ethics, but is more consistent with the {\it male information advantage hypothesis}. Moreover, consistent with this hypothesis, when the CEO is female, hence more likely to have access to information, post-buyback announcements clearly improve.  Note, however, that only \Sexpr{round(100*sum(BUYBACK_DATA_PROJECT$DATASET$boardex$CEO_female !=0)/length(BUYBACK_DATA_PROJECT$DATASET$boardex$CEO_female))}$\%$ of the firms in our sample have a female CEO.
+
+Finally, it should be noted that focusing on buybacks creates less endogeneity issues compared to other corporate financial decisions such as acquisitions. For example, \cite{HuangKisgen2013} are concerned that firms could seek out women if they know that men and women differ in corporate financial policy, i.e. if a firm knows that it would like to reduce acquisitions perhaps it deliberately hires a female. It is difficult to imagine that firms deliberately would hire more women if they want to do buybacks, especially if these buybacks generate lower returns both in the short run and the long run.  Moreover, unlike acquisitions, buybacks authorization announcements are not major strategic decisions. 
+
+The paper is organized as follows. We describe the repurchase data used for our study in Section \ref{sec:Data}. In Section \ref{sec:characteristics} we present differences of our sample firms depending on the firms' (board gender) diversity, and study the effects of diversity on the likelihood that a firm announces a repurchase program. In section \ref{sec:markettimingshort} we first examine the effect of buyback announcements on short term returns and test whether diversity makes a difference in the short run. We then turn in Section \ref{sec:markettiming} to our main question whether the market timing of share repurchases is related to  diversity. After we find that high diversity firms are worse market timers, we test whether this finding is not simply the result of the fact that high diversity firms are less likely to be undervalued.  In Section \ref{sec:cross} we study market timing of repurchases using cross-sectional regressions controlling for factors that may affect post repurchase announcement returns. Finally, we conclude in Section \ref{sec:conclusion}. 
+
+
+\section{Data}
+\label{sec:Data}
+
+
+<< fig.width=10, fig.height=6, out.width='\\textwidth', echo=F >>=
+cleanup_bb = list()
+cleanup_bb$Standardise <- BUYBACK_DATA_PROJECT$cleanupSDC$Standardise
+cleanup_bb$biz_clean <- BUYBACK_DATA_PROJECT$cleanupBIZ
+cusip_bb = BUYBACK_DATA_PROJECT$DATASET$SDC$CUSIP
+event.date_bb = BUYBACK_DATA_PROJECT$DATASET$SDC$Event.Date
+permno_bb = BUYBACK_DATA_PROJECT$DATASET$SDC$permno
+@
+
+Our sample of buyback announcements spans the period from \Sexpr{firstyear} to \Sexpr{lastyear}  as this is the period for which we also have data on firms' board composition. We use board composition data from Boardex. For each firm we obtain  the percentage of board members reported that are female each year. We use the most recent information available before the repurchase announcement. We combined all open market repurchase authorization announcements from both the SDC Repurchases data base and the SDC US mergers and acquisitions (M$\&$A) data base.  We removed the following events: (1) no CRSP returns were available; (2) not all Compustat data were available; (3) the percentage of shares authorized was larger than \Sexpr{MAX_EVENT_SIZE}$\%$, (4) the one month pre-announcement closing price was less than \$\Sexpr{penny_stock_price_recent}, (4) the primary stock exchange was not the NYSE, Nasdaq, or Amex; (5) the firm belonged to the Financial or Utilities sector, (6) board composition data were missing.  We obtained a final sample containing \Sexpr{length(BUYBACK_DATA_PROJECT$BEME_used)} buyback events made by \Sexpr{length(unique(BUYBACK_DATA_PROJECT$DATASET$SDC$permno))} firms.\footnote{More information is available upon request. 
+%All the source code, as well as an interactive online tool to explore data variations and robustness analyses of all results in this paper, is available at \href{http://tevgeniou.github.io/BoardDiversityBuybacks/}{tevgeniou.github.io/BoardDiversityBuybacks}.
+} We also collected company fundamentals data from Compustat/CRSP. All variables used throughout this paper are described in Table \ref{tbl:variables}.
+
+In our sample of \Sexpr{sum(!is.na(BUYBACK_DATA_PROJECT$DATASET$boardex$gender))} buyback events, in \Sexpr{length(which(!is.na(BUYBACK_DATA_PROJECT$DATASET$boardex$gender) & BUYBACK_DATA_PROJECT$DATASET$boardex$gender !=0))} cases there was at least one female member on the board. For \Sexpr{sum(scrub(BUYBACK_DATA_PROJECT$DATASET$boardex$CEO_female !=0))} buyback events the CEO was female, while for only \Sexpr{sum(scrub(BUYBACK_DATA_PROJECT$DATASET$boardex$CFO_female !=0))} events the CFO was female. For \Sexpr{length(useonly_senior_women)} events at least one female senior executive or director was present in the board.\footnote{We considered these positions, reported in Boardex:  ''Presiding Independent Director'',''Independent Vice Chairman'', ''Executive VP'',''Lead Independent Chairman'',''Presiding Independent Chairman'', ''Executive VP/COO'',''COO'',''Presiding Lead Independent Director''.} Since only few of the firms have a female CEO, CFO, or senior executive, we focus on female representation on corporate
+boards, which is both more common and more heterogeneous across firms, as also often done in the literature \citep{Chenetal2016}.
+
+For the firms for which there is at least one female in the board, we find that females represent on average \Sexpr{round(100*non_na_mean(BUYBACK_DATA_PROJECT$DATASET$boardex$gender),1)}$\%$ of board members, with the maximum being \Sexpr{round(100*max(BUYBACK_DATA_PROJECT$DATASET$boardex$gender),1)}$\%$.  The average percent of shares authorized for our sample of firms was \Sexpr{datasummaryBB["Percent authorized", "Mean"]}$\%$ (median of \Sexpr{datasummaryBB["Percent authorized", "Median"]}$\%$), the average Market Capitalization at announcement was \$\Sexpr{datasummaryBB["Market cap.", "Mean"]} Million (median of \$\Sexpr{datasummaryBB["Market cap.", "Median"]} Million), while the BE/ME ratio was on average \Sexpr{datasummaryBB["BE/ME", "Mean"]} (median of \Sexpr{datasummaryBB["BE/ME", "Median"]}). As Boardex collects data mostly for relatively large firms, our sample has firms that are larger than typical buyback ones (e.g., the average market capitalization of the sample of \cite{Evgeniouetal2016} is close to \$6,000 Million). We also collected from I/B/E/S consensus analyst recommendations in the two months prior to the buyback announcement. In the month before the buyback announcement \Sexpr{sum(downgraded_events)} firms were downgraded, \Sexpr{sum(upgraded_events)} were upgraded, and in \Sexpr{sum(!downgraded_events & !upgraded_events)} cases the recommendation consensus remained unchanged.   
+
+For comparison, we also collected data on seasoned equity offerings (SEOs). If managers are timing the market, then we expect them to issue shares when the stock is overvalued. However, this incentive may be mitigated by the concern that issuing overvalued shares to new investors may not be a good long-term strategy.  Moreover, if female executives have an information disadvantage and/or are more concerned than males about the ethics of issuing overvalued stock, one would expect non-significant (or less negative) post-issuance long-term excess returns  in high diversity firms.  We obtained the SEO events from SDC. We exclude rights issues, pure secondary offerings where existing shareholders sell shares without generating proceeds for the company,  issues made by non-U.S. firms or in non-U.S. markets, issues made by closed-end funds or unit investment trusts, as well as block trades, accelerated offers and best efforts. We also excluded events in the following cases: (1) we found duplicate events with mismatching information; (2) no CRSP returns or not all relevant Compustat data available; (3) the closing price was less than \$\Sexpr{penny_stock_price_recent}; (4) the primary stock exchange was not the NYSE, Nasdaq, or Amex; (5) the firm belonged to the Financial or Utilities sector, (6) board composition data were missing.  We obtained a final sample \Sexpr{length(ISSUERS_DATA_PROJECT$BEME_used)} SEO events made by \Sexpr{length(unique(ISSUERS_DATA_PROJECT$DATASET$SDC$permno))} firms. The average percent of shares issued was \Sexpr{datasummaryISS["Percent authorized", "Mean"]}$\%$ (median of \Sexpr{datasummaryISS["Percent authorized", "Median"]}$\%$), the average Market Capitalization on the announcement day  was \$\Sexpr{datasummaryISS["Market cap.", "Mean"]} Million (median of \$\Sexpr{datasummaryISS["Market cap.", "Median"]} Million), while the BE/ME was on average \Sexpr{datasummaryISS["BE/ME", "Mean"]} (median of \Sexpr{datasummaryISS["BE/ME", "Median"]}).
+
+For all variables we also calculated cross-sectional scores (indicated with ''Scores'' when used) using all CRSP firms each month: following \cite{Evgeniouetal2016} the (monthly) score of a firm for each firm characteristic (e.g., BE/ME)  is the percentile of the value of that characteristic for this firm across all CRSP firms with available values in that month. We mostly use these (cross-sectional) scores in our analyses. 
+
+Figure \ref{fig:boarddiversitycount} Panel A shows the number of buyback announcements for which the percentage of women on the board of the firm is available within the year before the buyback announcement. Panel B shows the average percentage of women, only for the buyback announcements that had at least one female in the board.  As noted, we consider the last board composition reported before the buyback announcement and within at most one year before the announcement. 
+
+Finally, we define low and high firms for any firm characteristic (e.g., ''gender'', which measures the most recently pre-event reported percentage of females in the board) to be the top or bottom \Sexpr{100*quantile_project}$\%$ of the firms/events according to that characteristic.\footnote{We use this high percentage in order to have enough events in each category in our double-sorts. Modifying this threshold does not affect the results qualitatively.} Moreover, as diversity has been slightly increasing over the years (as indicated in Figure \ref{fig:boarddiversitycount}), we define these for each event by comparing that event with  all repurchase events that were announced within the previous  \Sexpr{projectwindow} days. This way we also avoid any possible hindsight in the definitions of high and low events.  
+
+
+
+\section{Gender Diversity and Characteristics of Buyback Firms}
+\label{sec:characteristics}
+
+In Table \ref{tbl:boarddiversitycharacteristics} we split the sample in low diversity and high diversity company-announcements as discussed above.  Panel A shows the percentage of firms in each group that have a specific characteristic.  Panel B measures the average value of each characteristic. For each characteristic we test whether its mean (percentage) is statistically different between the low and high diversity samples. 
+
+Low diversity firms are more likely to mention in the press release ''undervalued'' as a motivation for the buyback although it should be pointed out that very few firms state an explicit motivation for the repurchase. Moreover, high diversity firms tend to be relatively larger firms with higher returns in the 6 months prior to the buyback announcement, but with lower book-to-market value (BE/ME) ratios.  Note that size, BE/ME and prior return are the major components of the Undervaluation-index (U-index) developed by \cite{PeyerVermaelen2009}. As argued in that paper, small beaten up value stocks are more likely to be buying back stock because they are undervalued.  So the fact that high diversity firms tend to be larger, have higher prior returns and lower BE/ME ratios means also that they have significantly smaller U-index ratios as indicated in the table.\footnote{For a description on how the U-index of \cite{PeyerVermaelen2009} is constructed, as well as for definitions of other variables used throughout the paper, see Table \ref{tbl:variables}.}   \cite{Evgeniouetal2016} extend the U-index to the EU-index\footnote{For a description on how the EU-index is constructed, see Table \ref{tbl:variables}.} by including two additional indicators of the ability of managers to have superior information: stock return volatility as well as idiosyncratic volatility, measured by $1-R^2$. Table \ref{tbl:boarddiversitycharacteristics} shows that the EU-index and its components are also significantly higher in low diversity firms, again supporting the hypothesis that high diversity firms are less likely to be undervalued. Figure \ref{fig:histogramsUindex} shows the histograms of the U- and EU-index for the low and high diversity samples: in agreement with Table \ref{tbl:boarddiversitycharacteristics}, the histogram for the low diversity firms is slightly shifted to the right. However, both high and low diversity samples include firms across all U- and EU-index values hence, based on the definitions of over- and under- valued firms of \cite{PeyerVermaelen2009}, include both over- and the under-valuation subsamples. Finally, low diversity firms tend to have lower leverage but they buy back larger fractions of shares. Although they are less likely to be either downgraded or upgraded prior to the buyback, it is also a fact that they are less covered by analysts, which is not surprising as they are smaller firms. 
+
+So one general conclusion from Table \ref{tbl:boarddiversitycharacteristics} is that buybacks in high diversity firms seem to be less driven by undervaluation than buybacks in low diversity firms, at least if we use ex-ante measures of the likelihood of undervaluation. High diversity firms tend to be larger, well performing growth firms with relatively smaller (idiosyncratic) volatility and relatively larger analyst coverage. Hence, based on the results of past research \citep{PeyerVermaelen2009,Evgeniouetal2016} we expect that these buybacks will be on average followed by smaller long-term excess returns, although we cannot infer from Table \ref{tbl:boarddiversitycharacteristics} whether the returns would still be smaller after controlling for undervaluation proxies. 
+
+%\subsection{Gender Diversity and Buyback Likelihood}
+%\label{sec:buybacklikelyhood}
+
+Table \ref{tbl:decisionlogit} tests whether the probability of a buyback depends on gender diversity. To a large extent we use the model of \cite{Massaetal2007} to predict whether, ceteris paribus, diversity increases the likelihood of a share buyback. We consider all CRSP firm-month decisions during the same period and winsorize the independent variables at the 1 and 99$\%$ cut-off levels.  Both Logistic and Probit regressions show that a share repurchase is more likely if the firm has announced a repurchase during the previous 2 years, if it has low returns in the previous 6 months, has low leverage, large market capitalization, high returns on assets and low capital expenditures, and is held by more institutions. The most relevant finding for this study is that the regression coefficient on the diversity variable is statistically significantly positive (at the 1 or 5$\%$ level).  This result is inconsistent with H3, the {\it risk aversion hypothesis}, i.e. the hypothesis that boards with significant female representation are less inclined to approve share buybacks because they increase leverage and therefore risk. 
+
+Note that our results on buybacks differ from \cite{Chenetal2016} who find that female representation on boards reduces the likelihood that a firm will make acquisitions, especially large acquisitions.  They explain their findings using social identity theory which predicts that compared to all-male boards, boards with one or more female directors will be associated with more thorough intra-board discussions and more active oversight in evaluating strategic decisions. Because a buyback authorization is not a major strategic decision we don't believe that social identity theory is really relevant here.
+
+So we conclude that, ceteris paribus, female board members are more likely to approve buybacks. In the next sections we test whether this also generates larger returns, both in the short run and the long run.
+
+\section{Gender Diversity and short-term returns around buybacks}
+\label{sec:markettimingshort}
+
+
+<<   eval = TRUE, echo=FALSE,message=FALSE,fig.pos='h',results='asis' >>=
+Daily_Returns = Daily_Returns_ini
+
+no_project_varM10M1 = 100*apply(Daily_Returns[paste("-",10:1, sep=""),useonly_no_project_var], 2, sum)
+no_project_varM10M1 = no_project_varM10M1[!is.na(no_project_varM10M1)]
+some_project_varM10M1 = 100*apply(Daily_Returns[paste("-",10:1, sep=""),useonly_some_project_var], 2, sum)
+some_project_varM10M1 = some_project_varM10M1[!is.na(some_project_varM10M1)]
+high_project_varM10M1 = 100*apply(Daily_Returns[paste("-",10:1, sep=""),High_project_eventsBB], 2, sum)
+high_project_varM10M1 = high_project_varM10M1[!is.na(high_project_varM10M1)]
+low_project_varM10M1 = 100*apply(Daily_Returns[paste("-",10:1, sep=""),Low_project_eventsBB], 2, sum)
+low_project_varM10M1 = low_project_varM10M1[!is.na(low_project_varM10M1)]
+
+
+no_project_var01 = 100*apply(Daily_Returns[c("0","+1"),useonly_no_project_var], 2, sum)
+no_project_var01 = no_project_var01[!is.na(no_project_var01)]
+some_project_var01 = 100*apply(Daily_Returns[c("0","+1"),useonly_some_project_var], 2, sum)
+some_project_var01 = some_project_var01[!is.na(some_project_var01)]
+high_project_var01 = 100*apply(Daily_Returns[c("0","+1"),High_project_eventsBB], 2, sum)
+high_project_var01 = high_project_var01[!is.na(high_project_var01)]
+low_project_var01 = 100*apply(Daily_Returns[c("0","+1"),Low_project_eventsBB], 2, sum)
+low_project_var01 = low_project_var01[!is.na(low_project_var01)]
+
+no_project_var2_10 = 100*apply(Daily_Returns[paste("+",2:10,sep=""),useonly_no_project_var], 2, sum)
+no_project_var2_10 = no_project_var2_10[!is.na(no_project_var2_10)]
+some_project_var2_10 = 100*apply(Daily_Returns[paste("+",2:10,sep=""),useonly_some_project_var], 2, sum)
+some_project_var2_10 = some_project_var2_10[!is.na(some_project_var2_10)]
+high_project_var2_10 = 100*apply(Daily_Returns[paste("+",2:10,sep=""),High_project_eventsBB], 2, sum)
+high_project_var2_10 = high_project_var2_10[!is.na(high_project_var2_10)]
+low_project_var2_10 = 100*apply(Daily_Returns[paste("+",2:10,sep=""),Low_project_eventsBB], 2, sum)
+low_project_var2_10 = low_project_var2_10[!is.na(low_project_var2_10)]
+
+tmp = rbind(
+  c(mean(no_project_varM10M1),mean(some_project_varM10M1),mean(low_project_varM10M1),mean(high_project_varM10M1), mean(low_project_varM10M1) - mean(high_project_varM10M1)),
+  c(t.test(no_project_varM10M1)$statistic,t.test(some_project_varM10M1)$statistic,t.test(low_project_varM10M1)$statistic,t.test(high_project_varM10M1)$statistic, t.test(low_project_varM10M1,high_project_varM10M1)$statistic),
+  c(t.test(no_project_varM10M1)$p.value,t.test(some_project_varM10M1)$p.value,t.test(low_project_varM10M1)$p.value,t.test(high_project_varM10M1)$p.value, t.test(low_project_varM10M1,high_project_varM10M1)$p.value),
+  
+  c(mean(no_project_var01),mean(some_project_var01),mean(low_project_var01),mean(high_project_var01), mean(low_project_var01) - mean(high_project_var01)),
+  c(t.test(no_project_var01)$statistic,t.test(some_project_var01)$statistic,t.test(low_project_var01)$statistic,t.test(high_project_var01)$statistic, t.test(low_project_var01,high_project_var01)$statistic),
+  c(t.test(no_project_var01)$p.value,t.test(some_project_var01)$p.value,t.test(low_project_var01)$p.value,t.test(high_project_var01)$p.value, t.test(low_project_var01,high_project_var01)$p.value),
+  
+  c(mean(no_project_var2_10),mean(some_project_var2_10),mean(low_project_var2_10),mean(high_project_var2_10), mean(low_project_var2_10) - mean(high_project_var2_10)),
+  c(t.test(no_project_var2_10)$statistic,t.test(some_project_var2_10)$statistic,t.test(low_project_var2_10)$statistic,t.test(high_project_var2_10)$statistic, t.test(low_project_var2_10,high_project_var2_10)$statistic),
+  c(t.test(no_project_var2_10)$p.value,t.test(some_project_var2_10)$p.value,t.test(low_project_var2_10)$p.value,t.test(high_project_var2_10)$p.value, t.test(low_project_var2_10,high_project_var2_10)$p.value)
+  
+)
+
+rownames(tmp) <- c("Days -10:-1","t-stat","p-value","Days 0:+1","t-stat","p-value","Days +2:+10","t-stat","p-value")
+colnames(tmp) <- c("No Female","Some Female","Low Diversity","High Diversity", "Low-High Div.")
+
+tmp <- Reduce(rbind,lapply(1:3, function(i) {res = as.character(round(tmp[3*(i-1)+1,],2)); res = ifelse(tmp[3*(i-1)+3,] < 0.01, paste(res,"**", sep=""),ifelse(tmp[3*(i-1)+3,] < 0.05, paste(res,"*", sep=""),ifelse(tmp[3*(i-1)+3,] < 0.1, paste(res,"$^+$", sep=""),res))); rbind(res,paste("(",as.character(round(tmp[3*(i-1)+2,],2)), ")", sep=""))}))
+
+rownames(tmp) <- c("Days -10:-1","","Days 0:+1","","Days +2:+10","")
+short_term_windows_diffs = tmp
+@
+
+
+Share repurchases can have many objectives including (1) moving to an optimal (more leveraged) capital structure possibly to benefit from the tax deductibility of interest payments, (2) reducing agency costs of free cash flows to eliminate excess cash that otherwise would be wasted, or (3) signaling that the stock is undervalued. Note that none of these motivations predicts long-term excess returns, unlike the market timing hypothesis which assumes market under-reaction.  It is also not obvious that gender should have a material impact on short term returns. Even if one would adopt the thesis that female executives care more about stakeholder value \citep{MatsaMiller2013} than shareholder value, one would expect, ceteris paribus, fewer buybacks in firms with larger diversity, which is inconsistent with the results in Table \ref{tbl:decisionlogit}. Indeed, while many arguments can be made that buybacks are good for shareholders, they may hurt other stakeholders such as workers and bondholders: a buyback increases leverage and pays out cash that could have been used to create more jobs and increase salaries.\footnote{For example, Lazonick \citep{Lazonick2014}, an advisor to Hilary Clinton, argues that ''if the U.S. is to achieve growth that distributes income equitably and provide stable employment, government and business leaders must take steps to bring both stock buybacks and executive pay under control''. } 
+
+Figure \ref{fig:carfigs}, Panel~A, and Table \ref{tbl:boarddiversityBBshortterm} show the cumulative daily excess returns from 10 days before the buyback authorization announcement until 10 days afterwards. 
+%We shifted all cumulative returns so that the returns at the end of day -1 (one day before the announcement) are 0. 
+Four subsamples are considered: the first ''All Male'' sample includes \Sexpr{length(useonly_no_project_var)} firms in which there are no females on the company board; the second ''Some Female'' sample includes all  \Sexpr{length(useonly_some_project_var)} firms with at least one female on the board; the third ''Low Diversity'' sample contains all the \Sexpr{sum(Low_project_eventsBB)} firms for which the percentage of females on board was lower than the \Sexpr{100*quantile_project}$^{th}$ percentile of all female percentages across all firms that announced a buyback in the previous year; finally, the fourth ''High Diversity'' sample includes all \Sexpr{sum(High_project_eventsBB)} firms for which the percentage of females on board was higher than the \Sexpr{100*quantile_project}$^{th}$ percentile of all female percentages across all firms that announced a buyback in the previous year. Note that \Sexpr{100*length(useonly_no_project_var)/sum(Low_project_eventsBB)}$\%$ of the ''Low Diversity'' category have no females on the board - for the selected \Sexpr{100*quantile_project}$^{th}$ percentile threshold. For each event we calculated the \cite{FamaFrench2015} five-factor model $\beta$'s using 60 days before day -10 from the repurchase announcement. We then used these $\beta$'s to calculate cumulative average abnormal returns (CAR) from 10 days before until 10 days after the event. The results are shown in Figure \ref{fig:carfigs}, Panel~A, and Table \ref{tbl:boarddiversityBBshortterm}.  Table \ref{tbl:cumhort} shows the CAR for three subperiods and tests for significant difference between low Diversity and high Diversity firms.  In all sub-samples, firms experience significant negative abnormal returns in the 10 days prior to the buyback announcement. Moreover, these pre-announcement returns are significantly smaller in the low diversity sample.  This is consistent with the results from Table \ref{tbl:boarddiversitycharacteristics} that when diversity is low it is more likely the buyback is driven by undervaluation. If we define the announcement return CAR (0,1) as the sum of the excess return on day 0 and day +1 (to allow for the fact that some announcements may be made after hours), we find that average abnormal announcement returns are \Sexpr{(mean(low_project_var01) - mean(high_project_var01))}$\%$ larger (t = \Sexpr{t.test(low_project_var01,high_project_var01)$statistic}) in the low diversity group.  This dominance of low diversity firms continues after day 1: from day +2 until day +10 the low diversity firms experience \Sexpr{(mean(low_project_var2_10) - mean(high_project_var2_10))}$\%$ larger (t = \Sexpr{t.test(low_project_var2_10,high_project_var2_10)$statistic}) excess returns than the low diversity firms.   
+
+To confirm whether diversity independently determines short term returns we run cross-sectional regressions of the announcement excess return CAR (0,1) against board gender diversity controlling for variables that proxy for motivations for the buyback proposed in the literature.  As the signaling motivation for buybacks is more likely if firms are undervalued, we include the components of the U-index of \cite{PeyerVermaelen2009} as well as other proxies proposed by \cite{Evgeniouetal2016} such as volatility, idiosyncratic volatility and analyst coverage as control variables for the signaling motive. As mentioned before, gender diversity is measured by the cross sectional score of the percentage of females on the board. We also include an interaction variable to adjust for the fact that the CEO is female. 
+
+The results are shown in Table \ref{tbl:crossshort}. Controlling for event/firm characteristics, we find that, in contrast to the findings of \cite{HuangKisgen2013} who examine other corporate decisions such as mergers and acquisitions and debt issues, short-term announcement returns are not influenced by gender. The most significant explanatory variables are two proxies for the likelihood of undervaluation: prior returns and volatility. However, the more interesting question is whether {\it long-term} excess returns are driven by gender: are boards dominated by females better or worse than male- dominated boards in judging whether a buyback is justified because of undervaluation? We turn to this question next. 
+
+\section{Gender Diversity and Market Timing}
+\label{sec:markettiming}
+
+\subsection{Unconditional Results}
+\label{sec:unconditional}
+
+In order to calculate excess returns we use the \cite{FamaFrench2015} five factor model as a benchmark. This model assumes that expected stock returns are driven by 5 factors: the market index, size, book-to-market, profitability and investment. We use the IRATS method \citep{Ibbotson1975} where for a given sample of firms that announced an open market share repurchase we run the following regression each event month~$j$:
+\begin{eqnarray*}
+(R_{i,t} - R_{f,t}) &=& a_j + b_j (R_{m,t} - R_{f,t}) + c_j {SMB}_t + d_j {HML}_t + e_t {RMW}_t + f_t {CMA}_t + \epsilon_{i,t},
+\end{eqnarray*}
+\noindent where $R_{i,t}$ is the monthly return on security $i$ in the calendar month $t$ that corresponds to the event month $j$, with $j = 0$ being the month of the repurchase announcement. $R_{f,t}$ and $R_{m,t}$ are the risk-free rate and the return on the equally weighted CRSP index, respectively. ${SMB}_t$, ${HML_t}$, ${RMW}_t$, ${CMA}_t$ are the monthly returns on the size, book-to-market factor, profitability factor and investment factor in month $t$, respectively. We then report the sums of the intercepts of cross-sectional regressions over the relevant event-time-periods, expressed in percentage terms. The standard error (denominator of the $t$-statistic) for a window is the square root of the sum of the squares of the monthly standard errors. Note that this method adjusts for buyback induced risk changes after the announcement and that events are equally weighted. Value-weighting events reduces the significance of long-term excess returns for the simple reason that small stocks are more likely to be mispriced \cite{PeyerVermaelen2009}.
+
+Table \ref{tbl:boarddiversityBB} Panel~A shows the IRATS  5-factor abnormal returns for the same four types of buyback events as in Table \ref{tbl:cumhort}: a) those for which there is no females on the company board, b) those for which there is at least one female, c) those for which the percentage of females on board was lower than the \Sexpr{100*quantile_project}$^{th}$ percentile of all female percentages across all firms that announced a buyback in the previous year (noted as ''Low Diversity'' in Table \ref{tbl:boarddiversitycharacteristics}), d) those for which the percentage of females on board was higher than the \Sexpr{100*(1-quantile_project)}$^{th}$  percentile of all female percentages across all firms that announced a buyback in the previous year (noted as ''High Diversity'' in Table \ref{tbl:boarddiversitycharacteristics}). Note again that \Sexpr{round(100*length(intersect(useonly_no_project_var,Low_project_Uindex_eventsBB))/length(Low_project_Uindex_eventsBB),2)}$\%$ of the ''Low Diversity'' category have no females on the board - for the selected \Sexpr{100*quantile_project}$^{th}$ percentile threshold. 
+
+On average, share buybacks by firms with some female board members or with high diversity boards generate economically and statistically significant lower long term excess returns than firms with respectively, no females on the board, or low diversity boards. This conclusion holds for all horizons. The results are also shown in Panel~B of Figure \ref{fig:carfigs}.
+
+Finally, Table \ref{tbl:boarddiversityBB} Panel~B shows the opposite results for equity issues: while all-male firms and low diversity firms experience no significant long term excess returns in agreement with past literature \citep{FamaFrench2015b,Evgeniouetal2016}, firms with some females and high diversity firms experience\footnote{Note these are defined using the percent of females in the board relative to that for equity events in the previous year, hence can include firms with no females.}, respectively, significant positive long term (48 month) excess returns of \Sexpr{some_project_var_iss["+48",1]}$\%$ and \Sexpr{project_IRATStableISS["+48",4]}$\%$.  This indicates that equity issues in firms with high diversity boards are not driven by market timing designed to benefit long term existing investors at the expense of new investors. The results are consistent with the ''{\it male information advantage hypothesis}'', i.e. the hypothesis that women have less information that can help them to judge whether stocks are undervalued or overvalued. Note that while ''ethical'' considerations would predict that firms should not issue overvalued shares to new investors, it is not obvious why these considerations are consistent with issuing undervalued shares to outsiders. The fact that they issue stock when their shares are undervalued is a striking illustration supporting the ''male information advantage hypothesis''.
+
+Alternatively, the findings in the buyback sample  are simply reflecting the fact that firms with important female representation happen to be less likely to be mispriced, as suggested by their relatively low scores for the U-index reported in Table \ref{tbl:boarddiversitycharacteristics}.  Hence we need to adjust for these factors before making any  conclusions.
+
+
+\subsection{Conditional Results}
+\label{sec:conditional}
+
+Table \ref{tbl:abnormalbyfeaturesUindex} shows whether the lower excess returns after buyback announcements by high diversity boards (high diversity buybacks) are simply the result of the correlation of diversity with measures of the likelihood of undervaluation such as the U-index \citep{PeyerVermaelen2009} and the EU-index \citep{Evgeniouetal2016}.  Panel A compares long-term excess returns for low and high diversity firms, both for high and low U-index firms. Panel B is similar to Panel A but now we use the EU-index to classify firms. Note that in all our conditional analyses in this section, as the number of events in each category when we do the double-sorting may be small, a number of measures are not statistically significant although they may be large.
+
+From the table we can first conclude that, given the level of undervaluation, buybacks by firms with high diversity are followed by smaller long-term excess returns. For example, focusing on high U-index firms (and IRATS), buybacks by low diversity firms are followed by 48- month excess returns of \Sexpr{project_Uindex_IRATStable_underBB["+48", 10]}$\%$ (t = \Sexpr{project_Uindex_IRATStable_underBB["+48", 11]}) while the corresponding alpha for high diversity firms is \Sexpr{project_Uindex_IRATStable_underBB["+48", 13]}$\%$ (and statistically insignificant - t = \Sexpr{project_Uindex_IRATStable_underBB["+48", 14]}). For the low U-index firms, the low diversity group is followed by 48-month excess returns of \Sexpr{project_Uindex_IRATStable_underBB["+48", 1]}$\%$ (t = \Sexpr{project_Uindex_IRATStable_underBB["+48", 2]}), also significantly larger than the insignificant \Sexpr{project_Uindex_IRATStable_underBB["+48", 4]}$\%$ (t = \Sexpr{project_Uindex_IRATStable_underBB["+48", 5]}) in the high diversity sample. Note also that the U-index does {\it not} differentiate high diversity firms (the difference of the 48-months high minus low U-index firms returns is \Sexpr{project_Uindex_IRATStable_underBB["+48", 13] - project_Uindex_IRATStable_underBB["+48", 4]} and insignificant, with both high and low U-index returns being insignificant, for all time horizons for these firms) - while it does so for the low diversity ones consistent with past literature \citep{PeyerVermaelen2009}. Using the EU-index of \cite{Evgeniouetal2016} we get similar, although less significant results - note that the EU-index also uses the firm volatility which we study separately next.  
+
+The main message from Table \ref{tbl:abnormalbyfeaturesUindex} is that the relatively poor performance of high diversity firms is not simply the result of the fact that, as Table \ref{tbl:boarddiversitycharacteristics} may suggest, high diversity firms are on average less likely to be undervalued. Instead, it seems that the ex-ante (publicly available) predictors of undervaluation cannot explain the lower post-event excess returns in high diversity boards relative to low diversity boards.  This could mean that the high diversity boards may have assessed whether their stock was undervalued using more (inside) information provided by the richer male information network (as predicted by the ''{\it male information advantage hypothesis}'').  Or it could mean that the high diversity boards also have such inside information but do not use it for market timing as that is not considered as a ''proper'' motivation for a repurchase. 
+
+In Table \ref{tbl:abnormalbyfeaturesVol} we use two other measures to proxy for the likelihood of undervaluation: idiosyncratic volatility and total volatility. These proxies are added by \cite{Evgeniouetal2016} to the components of the U-index (market-to-book, firm size and prior return) to construct the EU-index.  In Panel A, we control for another measure for the likelihood that the buyback is driven by undervaluation and market timing based on superior inside information: idiosyncratic volatility measured by $1-R^2$, where $R^2$ measures the relation of the stock return and the five Fama-French factors (the $R^2$ of the regression of the pre-buyback announcement returns on the five factors). If we assume that managers only have superior information about company-specific events, we expect that buybacks in firms with high idiosyncratic volatility are more likely driven by market timing based on such information.  In short, the fact that gender diversity is negatively correlated with long-term excess returns could be the result of the fact that diversity is negatively correlated with (idiosyncratic) volatility.  Table \ref{tbl:abnormalbyfeaturesVol} rejects this hypothesis: low diversity firms are always associated with larger excess returns than high diversity firms, both for the low and the high idiosyncratic volatility firms.  Buybacks by firms with high idiosyncratic risk experience 48-month excess returns of \Sexpr{project_Idio_IRATStable_underBB["+48", 10]}$\%$ (t = \Sexpr{project_Idio_IRATStable_underBB["+48", 11]})  in the low diversity sample, which is \Sexpr{project_Idio_IRATStable_underBB["+48", 16]}$\%$ more than the excess returns in the high diversity sample, a difference that is statistically significant at the 10$\%$ level.  In the case of low idiosyncratic firms the low diversity excess returns are more than \Sexpr{floor(project_Idio_IRATStable_underBB["+48", 1]/project_Idio_IRATStable_underBB["+48", 4])} times those of the high diversity ones, already after 36 months. 
+
+Table \ref{tbl:abnormalbyfeaturesVol}, Panel B, also tests whether the fact that high gender diversity is correlated with lower long-term excess returns is related to another proxy for the probability of undervaluation: volatility. \cite{IkenberryVermaelen1996} argue that, because open market repurchase programs are not firm commitments, they should be considered as options to take advantage of undervaluation. The larger the volatility the larger the value of this option. To the extent the market underreacts to the creation of this option, one would expect to see larger excess returns after repurchase authorization announcements of volatile companies.  Both for the high and the low volatility subsample firms, low diversity firms are always associated with larger excess returns than high diversity ones, although in this case the difference is not statistically significant. Note that, as mentioned above our sample consists of relatively large, hence less volatile firms as we consider only firms with data reported by Boardex.
+
+We conclude from the conditional tests above that, although Table \ref{tbl:boarddiversitycharacteristics} shows that women are more represented in firms that are less likely to be undervalued (using ex ante proxies for the likelihood of undervaluation), this cannot fully explain why, ex post, share repurchase programs approved by boards with high diversity experience lower long-term excess returns. Indeed, it is striking that in all the comparisons in Tables \ref{tbl:abnormalbyfeaturesUindex} and \ref{tbl:abnormalbyfeaturesVol}  regardless of the ex- ante proxy used for the likelihood of undervaluation, low diversity firm buybacks are followed by larger long term excess returns than high diversity ones, for all horizons starting from 2 years after the announcement. In other words, the ex-ante indicators of undervaluation don't predict post-event excess returns as well when the board has a higher female representation. This is consistent with the male information advantage hypothesis: when market timing is the main purpose of a buyback, boards assess whether their stock is undervalued or the market deservedly punished it using both publicly available undervaluation proxies, like the components of the U-index, as well as private information. However, male boards have access to more private information, making it easier for them to rightfully disagree with the market when indeed the company is undervalued and not deservedly beaten, therefore to generate on average higher post announcement returns than boards with higher female representation, as we also observe. 
+
+\section{Cross-Sectional Analysis of Long-Run Excess Returns}
+\label{sec:cross}
+
+To test whether diversity has explanatory power for excess returns in addition to known factors, we also ran regressions of long-run monthly excess returns on the diversity score and a number of control variables. Following \cite{Brennanetal1998}, we first estimate factor loadings $\beta_{jk, \tau}$ for each event $j$, risk factor $k$, and event month $\tau$ using data from the 60 months prior to the event month $\tau$ (requiring that there are at least 24 return observations during those 60 months). The risk factors used in our study are the \cite{FamaFrench2015} five factors ($R_M-R_F$, SMB, HML, RMW, and CMA). Factor loadings $\beta_{jk, \tau}$ are obtained from the following time series regression: 
+$$
+R_{jt}-R_{Ft} = a_{j\tau} + b_{j\tau} (R_{Mt}-R_{Ft}) + s_{j\tau} SMB_t + h_{j\tau} HML_t + r_{j\tau} RMW_t + c_{j\tau} CMA_t + e_{jt} = 
+$$
+\begin{equation}
+a_{j\tau} +\sum_{k=1}^5 \beta_{jk, \tau} F_{kt} + e_{jt},
+\label{eq:eq1}
+\end{equation}
+\noindent where $F_{kt}$ indicates the $k^{th}$ risk factor in month $t$, and $t$ ranges over the 60 months before the event month $\tau$ for which returns are available. 
+
+Next, for each stock $j$ in event month $\tau$, we calculate the estimated risk-adjusted return $\Delta R_{j\tau}$ using the estimated $\beta_{jk, \tau}$ factor loadings:
+$$
+\Delta R_{j\tau} = (R_{j\tau}-R_{F\tau}) - [b_{j\tau} (R_{M\tau} - R_{F\tau}) + s_{j\tau} SMB_{\tau} + h_{j\tau} HML_{\tau} + r_{j\tau} RMW_{\tau} + c_{j\tau} CMA_{\tau}] = 
+$$
+\begin{equation}
+(R_{j\tau}-R_{F\tau}) - \sum_{k=1}^5 \beta_{jk,\tau} F_{k\tau} 
+\label{eq:eq2}
+\end{equation}
+
+Then for all event stocks in each post-event month $\tau$ (from the 1$^{st}$ to the 48$^{th}$ month following the buyback announcement), we run the following cross-section regression: 
+\begin{equation}
+\Delta R_{j\tau} = c_{0\tau} + \sum_{m=1}^M c_{m\tau} Z_{mj} + {\mbox Year Dummies} + \epsilon_{j\tau},                                                       
+\label{eq:eq3}
+\end{equation}
+\noindent where $Z_{mj}$ are the $m^{th}$ characteristic of stock $j$ in the month prior to the buyback announcement, such as centrality, total volatility, $(1-R^2)$, analyst coverage, U-index, etc.
+
+Finally, we compute the  average of the monthly regression coefficient estimates $c_{m\tau}$ over the event months 3 through 48, $C_m^{n}$ for $n$ in 3 to 48. We calculate standard errors of the aggregated coefficients using the standard Fama-MacBeth approach \citep{FamaMacbeth1973}: the $t$-statistics for testing the hypothesis that $C_m^{n}=0$ are: 
+\begin{equation}
+t(C_m^{n}) = (C_m^{n})/(s(C_m^{n})/\sqrt{n})  
+\label{eq:eq4}
+\end{equation}
+\noindent where $n$ is the number of post-event months to calculate $C_m^{n}$ and $s(C_m^{n})$ is the standard deviation of the monthly estimates, $c_{m\tau}$ for $\tau$ in $1$ to $n$. We do this for four different time horizons $n$: 1 to 12 months, 1 to 24 months, 1 to 36 months, and 1 to 48 months.
+
+In Table \ref{tbl:crossindi} we regress long-run monthly excess returns on individual standardized firm characteristics. The significance of the characteristics depends on the investment horizon. For example, for the 48-month horizons, we find results that are largely consistent with past research: small firms, firms with a high EU-index and $(1-R^2)$ experience larger long-run excess returns.  However, the female percentage on the Board score is always negative and statistically significant (at the 5$\%$ level or less for the 36- and 48-months cases). 
+
+In Table \ref{tbl:crossall}  we run multivariate cross-sectional regressions with the same variables as in Table \ref{tbl:crossindi}. The conclusion that gender diversity, ceteris paribus, is associated with smaller long-term excess returns after buybacks is confirmed. Over all horizons, the effect is statistically significant at the 5$\%$ level or less. Interestingly when we include an interaction variable to adjust for the fact that the CEO is female, the diversity effect gets reduced significantly (at the 10$\%$ level or less) over the 24-month and 48-month horizons: when
+the CEO is female she may no longer have an information disadvantage.
+
+Overall, the combined results of Tables \ref{tbl:boarddiversityBB} through \ref{tbl:crossall} are consistent with the male information advantage hypothesis that argues that men have a better information network which allows them to value firms better. This is consistent with the interpretation of \cite{Incietal2016} who find that female directors earn smaller profits from insider trading. It could of course be also consistent with an ''ethical'' interpretation: women may be more ethical than men and don't believe that market timing, i.e. buying undervalued shares from uninformed investors, is a proper thing to do.  Regardless, all the results in this paper are inconsistent with the ''male overconfidence'' hypothesis supported by the past findings that mergers and acquisitions made by female executives generate larger excess returns \citep{HuangKisgen2013}.
+
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+We find that buyback authorizations approved by boards with significant female representation are followed by significantly smaller short term and long-term excess returns. While this gender effect disappears for short-term returns once we control for proxies for undervaluation, agency costs, and other potential motivations for share buybacks, it persists for long-term  excess returns. High diversity boards are more prevalent in firms that are less likely to be mispriced, i.e. large firms with high market-to-book ratios and firms with low measures for undervaluation such as the U-index or \cite{PeyerVermaelen2009} and the  EU-index of \cite{Evgeniouetal2016}. However, after controlling for these as well as other indicators of the likelihood that the buyback is motivated by undervaluation, we still find that long-term excess return are smaller when gender diversity is high.
+
+The post-repurchase announcement long-term excess returns are typically interpreted as evidence of market timing: managers buy back stock because their shares are undervalued. So our results indicate that high diversity boards are less successful at market timing. This conclusion is reinforced by the finding that high diversity firms on average issue equity when their shares are undervalued. 
+
+These results are inconsistent with the ''{\it the male overconfidence hypothesis}'' considered by  \cite{HuangKisgen2013} who find that female executives create more shareholder value in acquisitions and debt issues. However, our results are consistent with the findings of \cite{Incietal2016} that female insiders earn smaller profits from insider trading. Indeed, a share buyback can be considered as an indirect form of insider buying, not with the insiders' own personal funds but with the cash flows of the corporation, which may be partially owned by insiders. In summary, we can interpret our results in the same way as \cite{Incietal2016}: because women have a smaller network than men they tend to have an information disadvantage. Alternatively, they may be less interested in buying back stock from uninformed investors, in the same way as they may feel it is inappropriate to engage in insider trading as suggested by \cite{Scarlatetal2015}. In other words, the results of this paper could be given an ethical interpretation: women tend to be more ethical than men and consider market timing to take advantage of the uninformed as unethical. Or, more ethical firms hire more women. Two additional findings, however, are more consistent with the information advantage hypothesis than the ethics hypothesis. First, in the \Sexpr{round(100*sum(BUYBACK_DATA_PROJECT$DATASET$boardex$CEO_female !=0)/length(BUYBACK_DATA_PROJECT$DATASET$boardex$CEO_female))}$\%$ of the cases when the CEO is female, and therefore should have access to better information than the average board member, long-term excess returns clearly improve. Second, firms experience significant positive long-term excess returns after equity issues when diversity is high.  Separating these hypotheses is a challenging topic for further research. 
+
+\newpage
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% FIRST ALL TABLES
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+{\small \singlespacing \LTXtable{\textwidth}{VariablesTable} }
+
+\clearpage
+
+<<  eval = TRUE, echo=FALSE,message=FALSE,fig.pos='h',results='asis' >>=
+project_relationschar = Reduce(rbind,lapply(1:nrow(project_relations),function(i) {
+  r = project_relations[i,]
+  res = c(latex_print_number(r[1]), latex_print_number(r[2]), paste(latex_print_number(r[1]-r[2],2), " (",latex_print_number(r[4],2), ")", sep=""))
+  if(r[3] <0.1)
+    res = c(latex_print_number(r[1]), latex_print_number(r[2]), paste(paste(latex_print_number(r[1]-r[2],2), "^+", sep=""), " (",latex_print_number(r[4],2), ")", sep=""))
+  if(r[3] <0.05)
+    res = c(latex_print_number(r[1]), latex_print_number(r[2]), paste(paste(latex_print_number(r[1]-r[2],2), "*", sep=""), " (",latex_print_number(r[4],2), ")", sep=""))
+  if(r[3] <0.01)
+    res = c(latex_print_number(r[1]), latex_print_number(r[2]), paste(paste(latex_print_number(r[1]-r[2],2), "**", sep=""), " (",latex_print_number(r[4],2), ")", sep=""))
+  res
+}))
+
+project_relationschar = rbind(
+  project_relationschar[1:8,],
+  rep(NA, ncol(project_relationschar)), 
+  rep(NA, ncol(project_relationschar)),
+  project_relationschar[9:nrow(project_relationschar),])
+project_relationschar[10,] <- c("Low Div.","High Div.","Low-High Div. (t-stat)")
+
+# Some re-naming
+tmp = c(rownames(project_relations)[1:8],"","Panel B: Averages",rownames(project_relations)[9:nrow(project_relations)])
+tmp[which(tmp == "Cash")] <- "SDC Source of Fund: Cash"
+tmp[which(tmp == "Undervalued")] <- "SDC Purpose: Undervalued"
+tmp[which(tmp == "Enhance Shareholder Value")] <- "SDC Purpose: Enhance Shareholder Value"
+tmp[which(tmp == "Stock Option Plan")] <- "SDC Purpose: Stock Option Plan"
+tmp[which(tmp == "One minus Rsq")] <- "(1-R^2)"
+tmp[which(tmp == "Female Percent in Board")] <- "Female Percent in Board"
+tmp[which(tmp == "Total Payout in Event Year before Event")] <- "Total Payout in Year before Event"
+
+project_relationschar = cbind(tmp,project_relationschar)
+project_relationschar1=project_relationschar
+
+project_relationschar=project_relationschar1
+tmp  = c("Panel A: Percentages","Low Div.","High Div.","Low-High Div. (chi2-stat)")
+project_relationschar = rbind(tmp,project_relationschar)
+colnames(project_relationschar) <- NULL
+project_relationschar = rbind(project_relationschar, c("Observations", sum(Low_project_eventsBB),sum(High_project_eventsBB), "-"))
+latex_render_data_frame(
+  project_relationschar, 
+  title = "Firm Characteristics and Board Gender Diversity",
+  caption="Firm characteristics for low and high diversity buyback firms. Panel~A shows percentages of repurchase events in the indicated column, while Panel~B shows averages across the events in that column. ** indicates  statistically significant difference between the two columns at the 1$\\%$ level,  * at the 5$\\%$ level, and + as the 10$\\%$ level. The $\\chi^2$-test for proportions is used in Panel~A, and the t-test in Panel~B. All indicated scores are between 0 and 1 and are cross-sectional across all CRSP firms the month before the repurchase announcement. See Table \\ref{tbl:variables} for detailed definitions of the variables.",
+  label = "tbl:boarddiversitycharacteristics",
+  columns=NULL,
+  bigtitleontop = T,
+  show_rownames=FALSE,
+  scale = 1,
+  digits=1,
+  lastSpecial=F,dorotate=F,
+  NAvalue = "", hlinerows = c(1,9,10,11)
+)
+@
+
+\clearpage
+
+
+<<   eval = TRUE, echo=FALSE,message=FALSE,fig.pos='h',results='asis' >>=
+tmp = cbind(logistic_regression_buyback_project,probit_regression_buyback_project)
+tmp = rbind(tmp,rep(nrow(logistic_data),ncol(tmp)))
+rownames(tmp) <- c(
+  "Intercept",
+  "Announced Repurchace in Previous 2 Years (0/1)",
+  "Market Cap. (Score)", 
+  "BE/ME (Score)", 
+  "Prior Returns (Score)",
+  "Total Payout in Event Year",
+  "Total Payout in Year before Event",
+  "Leverage",
+  "Profitability (ROA)",
+  "Operating Income (Percent assets)", 
+  "Non-Operating Income (Percent assets)",
+  "Std. Dev. Of Op. Income",
+  "Lag Dividend Payout Ratio",
+  "Liquid Assets (Percent assets)",
+  "Price/Earnings Ratio",
+  "Capital Expenditures (Percent assets)",
+  "Institutional Holdings",
+  "Number of Institutions",
+  "CEO Female x Board Diversity",
+  "Female Percentage in Board (Diversity)",
+  "Observations")
+printLatexTable(
+  tmp,
+  columns = c("Logistic","Probit"),
+  title="The decision to repurchase: Logistic and Probit Regressions",
+  caption=" This table presents the results for the firm's decision to repurchase using logistic and probit regressions on firm-month observations. The dependent variable is a binary variable indicating whether there was a repurchase announcement in a given month by a given firm. **, * and + denote significance levels at 1$\\%$, 5$\\%$, and 10$\\%$,
+respectively. Year and 2-digit industry dummies are used. See Table \\ref{tbl:variables} for detailed definitions of the variables.",
+label = "tbl:decisionlogit",
+titleontop=T,
+metric = "Coeff.",
+scale=1,
+lastSpecial=T
+#digitsround = 5
+)
+@
+
+\clearpage
+
+<<   eval = TRUE, echo=FALSE,message=FALSE,fig.pos='h',results='asis' >>=
+Daily_Returns = Daily_Returns_ini
+
+Daily_Returns = apply(Daily_Returns,2,function(r){
+  tmp = cumsum(r)
+  #tmp <- tmp - tmp[10]
+  tmp
+})
+
+
+no_project_var_short = t(apply(Daily_Returns[,useonly_no_project_var], 1, function(r) c(100*mean(r[!is.na(r)]),t.test((r[!is.na(r)]))$statistic,t.test((r[!is.na(r)]))$p.value)))
+some_project_var_short = t(apply(Daily_Returns[,useonly_some_project_var], 1, function(r) c(100*mean(r[!is.na(r)]),t.test((r[!is.na(r)]))$statistic,t.test((r[!is.na(r)]))$p.value)))
+low_project_short = t(apply(Daily_Returns[,Low_project_eventsBB], 1, function(r) c(100*mean(r[!is.na(r)]),t.test((r[!is.na(r)]))$statistic,t.test((r[!is.na(r)]))$p.value)))
+high_project_short = t(apply(Daily_Returns[,High_project_eventsBB], 1, function(r) c(100*mean(r[!is.na(r)]),t.test((r[!is.na(r)]))$statistic,t.test((r[!is.na(r)]))$p.value)))
+low_high_project_short = t(apply(Daily_Returns, 1, function(r) {
+  lows = r[Low_project_eventsBB]
+  highs = r[High_project_eventsBB]
+  c(100*mean(lows[!is.na(lows)]) - 100*mean(highs[!is.na(highs)]), t.test(lows[!is.na(lows)], highs[!is.na(highs)])$statistic,t.test(lows[!is.na(lows)], highs[!is.na(highs)])$p.value)
+}))
+colnames(no_project_var_short) <- colnames(some_project_var_short) <- colnames(low_project_short) <- colnames(high_project_short) <- colnames(low_high_project_short) <- c("bla", "t-stat","p-value")
+
+short_term_table = cbind(no_project_var_short,some_project_var_short,low_project_short,high_project_short,low_high_project_short)
+short_term_table = rbind(short_term_table, c(rep(length(useonly_no_project_var),3), rep(length(useonly_some_project_var),3), rep(sum(Low_project_eventsBB),3), rep(sum(High_project_eventsBB),3), c(rep(0,3))))
+rownames(short_term_table)[nrow(short_term_table)]<- "Observations"
+colnames(short_term_table) <- c("No Female","t-stat", "p-value","Some Female","t-stat", "p-value","Low Diversity","t-stat", "p-value","High Diversity","t-stat", "p-value", "Low-High Div.","t-stat", "p-value")
+
+short_term_table[which(apply(short_term_table,1,function(r) sum(is.na(r))!=0)),] <- rep(c(0,0,1),5)
+
+short_term_table[nrow(short_term_table),13:15] <- NA
+
+printLatexTable(
+  short_term_table,
+  columns = c("No Female","Some Female","Low Diversity","High Diversity", "Low-High Div."),
+  title="Buyback announcements and Board Gender Diversity, during 1999-2015: \\ Short Term Cumulative Abnormal Returns",
+  caption="This table presents the short-term cumulative abnormal returns from 10 days before the open market repurchase announcement date until 10 days after, for different types of companies depending on board gender diversity. For each event we calculate the \\cite{FamaFrench2015} five-factor model $\\beta$'s using 60 days before day -10 from the repurchase announcement, and then the cumulative abnormal returns are estimated using these $\\beta$'s and the daily returns starting 10 days before the repurchase announcement until 10 days after. Row ''0'' indicates the day of the repurchase announcement.",
+  label = "tbl:boarddiversityBBshortterm",
+  titleontop=T,
+  #metric = "CAR",
+  scale=1,
+  lastSpecial=T
+  #dorotate=F
+)
+@
+
+\clearpage
+
+<<   eval = TRUE, echo=FALSE,message=FALSE,fig.pos='h',results='asis' >>=
+tmp = short_term_windows_diffs
+
+latex_render_data_frame(
+  tmp, 
+  title="Short Term Excess Returns over Various Time Windows",
+  caption="This table presents the short-term average cumulative abnormal returns around open market repurchase announcements for different day windows before and after the announcement date and for different types of companies depending on board gender diversity. For each event we calculate the \\cite{FamaFrench2015} five-factor model $\\beta$'s using 60 days before day -10 from the repurchase announcement, and then the cumulative abnormal returns are estimated using these $\\beta$'s and the daily returns for the window of days around the announcement indicated in the rows. For example rows 'Days 0:+1' indicates the cumulative excess returns of days 0, and 1, where 0 is the date of the announcement. The significance levels are indicated by +, *, and ** and correspond to a significance level of $10\\%$, $5\\%$, and $1\\%$ respectively. t-stats are shown in parentheses. ",
+  label="tbl:cumhort",
+  columns=colnames(short_term_regression),
+  bigtitleontop = T,show_rownames=TRUE,red_text="",green_text="",blue_text="",scale=1,digits = 2,lastSpecial=F,dorotate=F, tostars_used = NULL, NAvalue = "-",hlinerows = NULL)
+
+
+@
+
+
+<<   eval = TRUE, echo=FALSE,message=FALSE,fig.pos='h',results='asis' >>=
+cross_regressions_variables_complete = c("CEO.GenderInteraction")
+
+company_features_all = as.data.frame(all_characteristics_continuous)
+company_features_all = as.data.frame(all_characteristics_continuous)
+company_features_all$project.main.IV.variable = project.main.IV.variable
+year_dummies_cross = sapply(BUYBACK_DATA_PROJECT$DATASET$SDC$Event.Date, function(i) str_sub(i, start=1,end=4))
+industry_dummies_cross = as.character(BUYBACK_DATA_PROJECT$DATASET$CRSP$SICH)
+industry_dummies_cross_2digit = ifelse(!is.na(BUYBACK_DATA_PROJECT$DATASET$CRSP$SICH), str_sub(as.character(BUYBACK_DATA_PROJECT$DATASET$CRSP$SICH), start=1,end=2), NA)
+company_features_all$year_dummies_cross = year_dummies_cross
+company_features_all$industry_dummies_cross = industry_dummies_cross
+company_features_all$industry_dummies_cross_2digit = industry_dummies_cross_2digit
+## PROJECT SPECIFIC VARIABLES
+company_features_all$CEO.GenderInteraction = (BUYBACK_DATA_PROJECT$DATASET$boardex$CEO_female !=0)*project.main.IV.variable
+
+company_features_all$short.term = 100*apply(Daily_Returns_ini[c("0","+1"),],2,sum)
+
+cross_regressions_variables_complete = c(
+  "Market Cap. (Score)",
+  "BE/ME (Score)",
+  "Prior Returns (Score)",
+  #"U-index",
+  #"EU-index", 
+  "Volatility (Score)",
+  "One minus Rsq (Score)",
+  "Analyst Coverage (Score)", 
+  #"Percent Shares", 
+  #"Operating Income (Percent assets)",
+  #"std Operating Income",
+  #"Non-Operating Income (Percent assets)",
+  #"Capital Expenditures (Percent assets)",
+  #"Price/Earnings Ratio",
+  #"Profitability (ROA)",
+  #"Leverage",
+  #"Total Payout in Event Year before Event", 
+  #"Liquid Assets (Percent assets)",
+  #"Institutional Holdings (Score)",
+  #"Number of Institutions (Score)"
+  cross_regressions_variables_complete,
+  "project.main.IV.variable",
+  "short.term"
+)
+
+
+company_features = company_features_all[,c(cross_regressions_variables_complete,"year_dummies_cross","industry_dummies_cross_2digit")]
+# Temporary colnames to remove spaces and other math terms that mess up the equation formula below
+colnames(company_features) <- sapply(colnames(company_features), function(i){
+  while(str_detect(i, " ")) i = str_replace(i, " ","_")
+  while(str_detect(i, "\\(")) i = str_replace(i, "\\(","_")
+  while(str_detect(i, "\\)")) i = str_replace(i, "\\)","_")
+  while(str_detect(i, "\\+")) i = str_replace(i, "\\+","_")
+  while(str_detect(i, "-")) i = str_replace(i, "-","_")
+  while(str_detect(i, "/")) i = str_replace(i, "/","_")
+  while(str_detect(i, "\\*")) i = str_replace(i, "\\*","_")
+  i}) 
+
+company_features <- company_features[apply(company_features,1, function(r) sum(is.na(r)) == 0),]
+
+the_shortterm_formula = as.formula(paste("short.term ~ ", paste(setdiff(colnames(company_features), "short.term"), collapse = " + " ), sep=" "))
+short_term_regression = lm(formula = the_shortterm_formula, data = company_features)
+short_term_regression = summary(short_term_regression)$coefficients
+short_term_regression = short_term_regression[,c(1,3,4)]
+short_term_regression <- short_term_regression[!str_detect(rownames(short_term_regression), "dummi"),]
+short_term_regression = rbind(short_term_regression,rep(nrow(company_features_all),ncol(short_term_regression)))
+
+rownames(short_term_regression) <- c("Intercept",setdiff(cross_regressions_variables_complete,"short.term"),  "Observations")
+rownames(short_term_regression)[which(rownames(short_term_regression) == "project.main.IV.variable")] <- project.main.IV.variable.name
+
+colnames(short_term_regression) <- c("Estimate","t-stat", "p-value")
+
+rownames(short_term_regression)[which(rownames(short_term_regression) == "Gender (Score)")]<- "Female Percentage in Board (Diversity)"
+rownames(short_term_regression)[which(rownames(short_term_regression) == "One minus Rsq (Score)")]<- "(1-R^2) (Score)"
+rownames(short_term_regression)[which(rownames(short_term_regression) == "CEO.GenderInteraction")] <- "CEO Female x Board Diversity"
+
+latex_render_data_frame(
+  short_term_regression, 
+  title="Cross-Section Regressions: Short Term Excess Returns and Gender Diversity.",
+  caption="Average coefficients of each firm characteristic explaining cumulative excess returns between days 0 and +1 of the repurchase announcement.  The five-factor Fama-French model is used to estimate the factor loadings for each stock using 60 daily returns until 10 days before the announcement. Excess returns using this model are then calculated for days 0 to +1. We are then regressing these excess returns on the firm characteristic. Year and 2-digit industry dummies are used. The significance levels are indicated by +, *, and ** and correspond to a significance level of 10$\\%$, 5$\\%$, and 1$\\%$ respectively, using a two-tailed test. See Table \\ref{tbl:variables} for detailed definitions of the variables.",
+  label="tbl:crossshort",
+  columns=colnames(short_term_regression),
+  bigtitleontop = T,show_rownames=TRUE,red_text="",green_text="",blue_text="",scale=1,digits = 3,lastSpecial=F,dorotate=F, tostars_used = tostars, NAvalue = "-",hlinerows = NULL)
+
+@
+
+
+\clearpage
+{\small
+<<   eval = TRUE, echo=FALSE,message=FALSE,fig.pos='h',results='asis' >>=
+tmp1 = cbind(no_project_var,some_project_var,no_project_var_minus_some_project_var,project_IRATStableBB)[reported_times,]
+tmp2 = cbind(no_project_var_iss,some_project_var_iss,no_project_var_minus_some_project_var_iss,project_IRATStableISS)[reported_times,]
+tmp1["Observations",c(7:9,16:18)] <- NA
+tmp2["Observations",c(7:9,16:18)] <- NA
+
+printLatexTable2(
+  tmp1,
+  tmp2,
+  #cbind(no_project_var_cal,some_project_var_cal,project_tableBB_cal)[reported_times,],
+  columns = c("No Female","Some Female","[No-Some Female]","Low Diversity","High Diversity", "[Low-High Div.]"),
+  title="Buyback and SEO announcements and Board Gender Diversity, during 1999-2015",
+  title1 = "Panel A: IRATs Cumulative Abnormal Returns for Buyback announcements",
+  title2 = "Panel B: IRATs Cumulative Abnormal Returns for SEO announcements ",
+  caption="This table presents the long-term abnormal return after open market repurchase announcements and SEO announcements from the announcement date until $t$ months after, for different types of companies depending on board gender diversity. Tables report monthly average cumulative abnormal returns (CAR) in percent using \\cite{Ibbotson1975} returns across time and security (IRATS) method combined with the \\cite{FamaFrench2015} five-factor model for the sample of firms that announced an open market share repurchase plus various subsamples. The following regression is run each event month~$j$:
+\\begin{eqnarray*}
+(R_{i,t} - R_{f,t}) &=& a_j + b_j (R_{m,t} - R_{f,t}) + c_j {SMB}_t + d_j {HML}_t + e_t {RMW}_t + f_t {CMA}_t + \\epsilon_{i,t},
+\\end{eqnarray*}
+where $R_{i,t}$ is the monthly return on security $i$ in the calendar month $t$ that corresponds to the event month $j$, with $j = 0$ being the month of the repurchase announcement. $R_{f,t}$ and $R_{m,t}$ are the risk-free rate and the return on the equally weighted CRSP index, respectively. ${SMB}_t$, ${HML_t}$, ${RMW}_t$, ${CMA}_t$ are the monthly returns on the size, book-to-market factor, profitability factor and investment factor in month $t$, respectively. The numbers reported are sums of the intercepts of cross-sectional regressions over the relevant event-time-periods expressed in percentage terms. The standard error (denominator of the $t$-statistic) for a window is the square root of the sum of the squares of the monthly standard errors. Panel~A shows the results for repurchase and Panel~B for SEO announcement events. 
+The significance levels are indicated by +, *, and ** and correspond to a significance level of $10\\%$, $5\\%$, and $1\\%$ respectively, using a two-tailed test.",
+label = "tbl:boarddiversityBB",
+bigtitleontop=T,
+titleontop=T,
+metric1 = "CAR",
+metric2 = "CAR",
+scale=1,
+lastSpecial=T,
+dorotate=F
+)
+@
+}
+
+\clearpage
+
+
+<<   eval = TRUE, echo=FALSE,message=FALSE,fig.pos='h',results='asis' >>=
+tmp1 = project_Uindex_IRATStable_underBB[reported_times,]
+tmp2 = project_EUindex_IRATStable_underBB[reported_times,]
+tmp1["Observations",c(7:9,16:18)] <- NA
+tmp2["Observations",c(7:9,16:18)] <- NA
+
+printLatexTable2(
+  tmp1,
+  tmp2,
+  #project_Uindex_IRATStable_underBB_cal[reported_times,],
+  columns = c("Low U: L Div.","H Div.","L-H Div.","High U: L Div.","H Div.","L-H Div."),
+  columns2 = c("Low EU: L Div.","H Div.","L-H Div.","High EU: L Div.","H Div.","L-H Div."),
+  title="Buyback announcements,  Board Gender Diversity, and U-Index or EU-Index during 1999-2015",
+  title1 = "Panel A: IRATs Cumulative Abnormal Returns and U-Index",
+  title2 = "Panel B: IRATs Cumulative Abnormal Returns and EU-Index",
+  caption="The tables present the long-run IRATS Cumulative Abnormal Returns (CAR) for subsets of firms repurchase announcements using the five factor Fama-French model. The tables report monthly average cumulative abnormal returns (CAR) in percent using \\cite{Ibbotson1975} returns across time and security (IRATS) method for the sample of firms that announced an open market share repurchase plus various subsamples. The following regression is run each event month~$j$ for the five-factor model:
+\\begin{eqnarray*}
+(R_{i,t} - R_{f,t}) &=& a_j + b_j (R_{m,t} - R_{f,t}) + c_j {SMB}_t + d_j {HMl}_t + e_t {RMW}_t + f_t {CMA}_t + \\epsilon_{i,t},
+\\end{eqnarray*}
+where $R_{i,t}$ is the monthly return on security $i$ in the calendar month $t$ that corresponds to the event month $j$, with $j = 0$ being the month of the repurchase announcement. $R_{f,t}$ and $R_{m,t}$ are the risk-free rate and the return on the equally weighted CRSP index, respectively. ${SMB}_t$, ${HMl_t}$, ${RMW}_t$, ${CMA}_t$ are the monthly returns on the size, book-to-market factor, profitability factor and investment factor in month $t$, respectively. The standard error (denominator of the $t$-statistic) for a window is the square root of the sum of the squares of the monthly standard errors. Panel~A reports the results for the repurchase announcements for low and high U-index firms. Panel~B reports the results for the repurchase announcements for low and high EU-index firms. The significance levels are indicated by +, *, and ** and correspond to a significance level of $10\\%$, $5\\%$, and $1\\%$ respectively, using a two-tailed test.",
+label = "tbl:abnormalbyfeaturesUindex",
+bigtitleontop=T,
+titleontop=T,
+metric1 = "CAR",
+metric2 = "CAR",
+scale=1,
+lastSpecial=T,
+dorotate=F
+)
+
+@
+
+%%%%%
+
+
+
+<<   eval = TRUE, echo=FALSE,message=FALSE,fig.pos='h',results='asis' >>=
+tmp1 = project_Idio_IRATStable_underBB[reported_times,]
+tmp2 = project_Vol_IRATStable_underBB[reported_times,]
+tmp1["Observations",c(7:9,16:18)] <- NA
+tmp2["Observations",c(7:9,16:18)] <- NA
+
+printLatexTable2(
+  tmp1,
+  tmp2,
+  columns = c("Low Idio.: L Div.","H Div.","L-H Div.","High Idio.: L Div.","H Div.","L-H Div."),
+  columns2 = c("Low Vol.: L Div.","H Div.","L-H Div.","High Vol.: L Div.","H Div.","L-H Div."),
+  title="Buyback announcements,  Board Gender Diversity, and (Idiosyncratic) Volatility during 1999-2015",
+  title1 = "Panel A: IRATs Cumulative Abnormal Returns and Idiosyncratic (1-$R^2$) Volatility",
+  title2 = "Panel B: IRATs Cumulative Abnormal Returns and Raw Volatility",
+  caption="The tables present the long-run IRATS Cumulative Abnormal Returns (CAR) for subsets of firms repurchase announcements using the five factor Fama-French model. The tables report monthly average cumulative abnormal returns (CAR) in percent using \\cite{Ibbotson1975} returns across time and security (IRATS) method for the sample of firms that announced an open market share repurchase plus various subsamples. The following regression is run each event month~$j$ for the five-factor model:
+\\begin{eqnarray*}
+(R_{i,t} - R_{f,t}) &=& a_j + b_j (R_{m,t} - R_{f,t}) + c_j {SMB}_t + d_j {HMl}_t + e_t {RMW}_t + f_t {CMA}_t + \\epsilon_{i,t},
+\\end{eqnarray*}
+where $R_{i,t}$ is the monthly return on security $i$ in the calendar month $t$ that corresponds to the event month $j$, with $j = 0$ being the month of the repurchase announcement. $R_{f,t}$ and $R_{m,t}$ are the risk-free rate and the return on the equally weighted CRSP index, respectively. ${SMB}_t$, ${HMl_t}$, ${RMW}_t$, ${CMA}_t$ are the monthly returns on the size, book-to-market factor, profitability factor and investment factor in month $t$, respectively. The standard error (denominator of the $t$-statistic) for a window is the square root of the sum of the squares of the monthly standard errors. Panel~A reports the results for the repurchase announcements for low and high (1-$R^2$) firms. Panel~B reports the results for the repurchase announcements for low and high Volatility firms. The significance levels are indicated by +, *, and ** and correspond to a significance level of $10\\%$, $5\\%$, and $1\\%$ respectively, using a two-tailed test.",
+label = "tbl:abnormalbyfeaturesVol",
+bigtitleontop=T,
+titleontop=T,
+metric1 = "CAR",
+metric2 = "CAR",
+scale=1,
+lastSpecial=T,
+dorotate=F
+)
+
+@
+
+
+%%%%%
+
+\clearpage
+
+{\small 
+<<   eval = TRUE, echo=FALSE,message=FALSE,fig.pos='h',results='asis' >>=
+
+BSC1998_individual_regression = rbind(BSC1998_individual_regression, rep(length(BUYBACK_DATA_PROJECT$DATASET$SDC$CUSIP),12))
+rownames(BSC1998_individual_regression)[nrow(BSC1998_individual_regression)] <- "Observations"
+
+rownames(BSC1998_individual_regression)[which(rownames(BSC1998_individual_regression) == "Gender (Score)")]<- "Female Percentage in Board (Diversity)"
+
+rownames(BSC1998_individual_regression)[which(rownames(BSC1998_individual_regression) == "One minus Rsq (Score)")]<- latexTranslate("(1-R^2) (Score)")
+
+printLatexTable(
+  BSC1998_individual_regression,
+  columns = colnames(BSC1998_individual_regression)[c(1,4,7,10)],
+  title="Cross-Section Regressions: Univariate Analysis \\\\ (one company feature per regression).",
+  caption="Monthly average coefficients of each firm characteristic estimated with the cross-section analysis following Brennan, Chordia and Subrahmanyam (1998). The five-factor Fama-French model is used to estimate the factor loadings for each stock in every month and, thus, monthly excess returns. Regressing monthly excess returns on each firm characteristic in every post-buyback-announcement month gives the monthly coefficients. Coefficients reported in this table are the average of monthly coefficient estimates over the corresponding post-event window. The standard error (denominator of the t-statistic) for a window is the standard deviation of the monthly estimated coefficients divided by the square root of the number of months in the window. Year and 2-digit industry dummies are used. The significance levels are indicated by +, *, and ** and correspond to a significance level of 10$\\%$, 5$\\%$, and 1$\\%$ respectively, using a two-tailed test. See Table \\ref{tbl:variables} for detailed definitions of the variables.",
+  label = "tbl:crossindi",
+  titleontop=T,
+  metric = "Month",
+  scale=1,
+  lastSpecial=T
+)
+@
+
+}
+
+{\small 
+
+<<   eval = TRUE, echo=FALSE,message=FALSE,fig.pos='h',results='asis' >>=
+BSC1998_completemodel = rbind(BSC1998_completemodel, rep(length(BUYBACK_DATA_PROJECT$DATASET$SDC$CUSIP),12))
+rownames(BSC1998_completemodel)[nrow(BSC1998_completemodel)] <- "Observations"
+
+rownames(BSC1998_completemodel)[which(rownames(BSC1998_completemodel) == "Gender (Score)")]<- "Female Percentage in Board (Score)"
+rownames(BSC1998_completemodel)[which(rownames(BSC1998_completemodel) == "One minus Rsq (Score)")]<- latexTranslate("(1-R^2) (Score)")
+
+printLatexTable(
+  BSC1998_completemodel,
+  columns = colnames(BSC1998_completemodel)[c(1,4,7,10)],
+  title="Cross-Section Regressions: Multivariate Analysis \\\\ (all variables in one regression).",
+  caption="Monthly average coefficients of each firm characteristic estimated with the cross-section analysis following Brennan, Chordia and Subrahmanyam (1998). The five-factor Fama-French model is used to estimate the factor loadings for each stock in every month and, thus, monthly excess returns. Regressing monthly excess returns on all firm characteristics in every post-buyback-announcement month gives the monthly coefficients. The firm characteristics are U-index, volatility, $(1-R^2)$, analyst coverage, institutional Holdings, and percentage of females at the firm's board. Coefficients reported in this table are the average of monthly coefficient estimates over the corresponding post-event window. The standard error (denominator of the t-statistic) for a window is the standard deviation of the monthly estimated coefficients divided by the square root of the number of months in the window. Year and 2-digit industry dummies are used. The significance levels are indicated by +, *, and ** and correspond to a significance level of 10$\\%$, 5$\\%$, and 1$\\%$ respectively, using a two-tailed test. See Table \\ref{tbl:variables} for detailed definitions of the variables.",
+  label = "tbl:crossall",
+  titleontop=T,
+  metric = "Month",
+  scale=1,
+  lastSpecial=T
+)
+@
+}
+
+\clearpage
+
+
+{\small 
+
+<<   eval = TRUE, echo=FALSE,message=FALSE,fig.pos='h',results='asis' >>=
+if (0){
+  BSC1998_completemodel_heckman = rbind(BSC1998_completemodel_heckman, rep(length(BUYBACK_DATA_PROJECT$DATASET$SDC$CUSIP),12))
+  rownames(BSC1998_completemodel_heckman)[nrow(BSC1998_completemodel_heckman)] <- "Observations"
+  
+  rownames(BSC1998_completemodel_heckman)[which(rownames(BSC1998_completemodel_heckman) == "Gender (Score)")]<- "Female Percentage in Board (Score)"
+  rownames(BSC1998_completemodel_heckman)[which(rownames(BSC1998_completemodel_heckman) == "One minus Rsq (Score)")]<- latexTranslate("(1-R^2) (Score)")
+  
+  printLatexTable(
+    BSC1998_completemodel_heckman,
+    columns = colnames(BSC1998_completemodel_heckman)[c(1,4,7,10)],
+    title="Cross-Section Regressions: Multivariate Analysis \\\\ (all variables in one regression, Heckman 2-stage model).",
+    caption="Monthly average coefficients of each firm characteristic estimated with the cross-section analysis following Brennan, Chordia and Subrahmanyam (1998). The model presented is a Heckman model, in which the Inverse Mills ratio is retrieved from the probit model in Table \\ref{tbl:decisionlogit}. The second stage is the same as that in Table \\ref{tbl:crossall}, augmentented with the Inverse Mills ratio. Year and 2-digit industry dummies are used. The significance levels are indicated by +, *, and ** and correspond to a significance level of 10$\\%$, 5$\\%$, and 1$\\%$ respectively, using a two-tailed test. See Table \\ref{tbl:variables} for detailed definitions of the variables.",
+    label = "tbl:crossallHeckman",
+    titleontop=T,
+    metric = "Month",
+    scale=1,
+    lastSpecial=T
+  )
+}
+@
+}
+
+\clearpage
+
+
+\clearpage
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%XXXXXXX NOW ALL FIGURES
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\begin{figure}[H]
+\centering
+<<  fig.width=10, fig.height=5, out.width='\\textwidth', echo=F >>=
+
+par(mfrow=c(2,1), mar=c(2.2,4.5,2.2,4.5))
+
+df.bar <- barplot(yearly_features_count,col=c("grey"),main = "Panel A: Buyback Announcements", ylab = "Announcements", xlab = "Years",las=2,space=0.5, cex.names=0.6)
+for (iter in 1:floor(max(yearly_features_count)/50))
+  abline(h = 50*iter)
+
+df.bar <- barplot(100*yearly_features_mean,col=c("grey"),main = "Panel A: Average Female Board Percentage", ylab = "Percent", xlab = "Years",las=2,space=0.5, cex.names=0.6)
+for (iter in 1:floor(max(yearly_features_count)/5))
+  abline(h = 5*iter)
+
+@
+\caption{Panel A: Buybacks events per year for which we have available board gender composition data. Panel B: Average percentage of women on board of directors last reported before the announcement and within at most one year, across all buybacks announced the year indicated.}
+\label{fig:boarddiversitycount}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+<< fig.width=8, fig.height=5, out.width='\\textwidth', echo=F >>=
+library(plotrix)
+par(mfrow=c(2,1), mar=c(2.7,4,2.7,4))
+tmp = table(BUYBACK_DATA_PROJECT$Valuation_Index[Low_project_eventsBB])/length(BUYBACK_DATA_PROJECT$Valuation_Index[Low_project_eventsBB])
+tmp2 = table(BUYBACK_DATA_PROJECT$Valuation_Index[High_project_eventsBB])/length(BUYBACK_DATA_PROJECT$Valuation_Index[High_project_eventsBB])
+barplot(100*rbind(tmp, tmp2),  width = 1, col = c("black", "grey"), beside = TRUE,main = "U-index: Low (black) and High (grey) Diversity Firms", ylab = "Percent Events", xlab = "U-index", axis.lty = 1)
+##
+tmp = table(BUYBACK_DATA_PROJECT$EU_index[Low_project_eventsBB])/length(BUYBACK_DATA_PROJECT$EU_index[Low_project_eventsBB])
+tmp2 = table(BUYBACK_DATA_PROJECT$EU_index[High_project_eventsBB])/length(BUYBACK_DATA_PROJECT$EU_index[High_project_eventsBB])
+barplot(100*rbind(tmp, tmp2),  width = 1, col = c("black", "grey"), beside = TRUE,main = "EU-index: Low (black) and High (grey) Diversity Firms", ylab = "Percent Events", xlab = "EU-index", axis.lty = 1)
+@
+\caption{Panel A: Histogram of the U-index of \cite{PeyerVermaelen2009} for the low diversity (black) and high diversity (grey) samples. Panel B: Histogram of the EU-index of \cite{Evgeniouetal2016} for the low diversity (light black) and high diversity (grey) samples. }
+\label{fig:histogramsUindex}
+\end{figure}
+
+
+\begin{figure}[H]
+\centering
+<< fig.width=8, fig.height=5, out.width='\\textwidth', echo=F >>=
+par(mfrow=c(2,1), mar=c(2.7,4,2.7,4))
+
+##############################
+Daily_Returns = Daily_Returns_ini
+
+Daily_Returns = apply(Daily_Returns,2,function(r){
+  tmp = cumsum(r)
+  #tmp <- tmp - tmp[10]
+  tmp
+})
+
+
+no_project_var_short = t(apply(Daily_Returns[,useonly_no_project_var], 1, function(r) c(100*mean(r[!is.na(r)]),t.test((r[!is.na(r)]))$statistic,t.test((r[!is.na(r)]))$p.value)))
+some_project_var_short = t(apply(Daily_Returns[,useonly_some_project_var], 1, function(r) c(100*mean(r[!is.na(r)]),t.test((r[!is.na(r)]))$statistic,t.test((r[!is.na(r)]))$p.value)))
+low_project_short = t(apply(Daily_Returns[,Low_project_eventsBB], 1, function(r) c(100*mean(r[!is.na(r)]),t.test((r[!is.na(r)]))$statistic,t.test((r[!is.na(r)]))$p.value)))
+high_project_short = t(apply(Daily_Returns[,High_project_eventsBB], 1, function(r) c(100*mean(r[!is.na(r)]),t.test((r[!is.na(r)]))$statistic,t.test((r[!is.na(r)]))$p.value)))
+low_high_project_short = t(apply(Daily_Returns, 1, function(r) {
+  lows = r[Low_project_eventsBB]
+  highs = r[High_project_eventsBB]
+  c(100*mean(lows[!is.na(lows)]) - 100*mean(highs[!is.na(highs)]), t.test(lows[!is.na(lows)], highs[!is.na(highs)])$statistic,t.test(lows[!is.na(lows)], highs[!is.na(highs)])$p.value)
+}))
+colnames(no_project_var_short) <- colnames(some_project_var_short) <- colnames(low_project_short) <- colnames(high_project_short) <- colnames(low_high_project_short) <- c("bla", "t-stat","p-value")
+
+short_term_table = cbind(no_project_var_short,some_project_var_short,low_project_short,high_project_short,low_high_project_short)
+colnames(short_term_table) <- c("No Female","t-stat", "p-value","Some Female","t-stat", "p-value","Low Diversity","t-stat", "p-value","High Diversity","t-stat", "p-value", "Low-High Div.","t-stat", "p-value")
+
+No_female = short_term_table[,"No Female"]
+Some_female = short_term_table[,"Some Female"]
+Low_Diversity = short_term_table[,"Low Diversity"]
+High_Diversity = short_term_table[,"High Diversity"]
+
+ylimit = c(min(No_female,Some_female,Low_Diversity,High_Diversity), 
+           max(No_female,Some_female,Low_Diversity,High_Diversity))
+
+short_labels = c("-10","-7","-4","-1","0","+1","4","7","+10")
+plot(No_female, ylim = ylimit,axes=FALSE, type = "l", ylab = "CAR", xlab="Days",main="Panel A: Short Term CAR", lwd=1.4)
+axis(1,at=match(short_labels,rownames(short_term_table)),labels=short_labels,cex.axis=1.1,las=3)
+axis(2,cex.axis=1.1)
+lines(Some_female,lty = 2,lwd=1.6)
+lines(Low_Diversity,lty = 3,lwd=1.6)
+lines(High_Diversity,lty = 4,lwd=1.6)
+abline(v=which(rownames(short_term_table) == "0"), lwd=0.5)
+abline(v=which(rownames(short_term_table) == "-1"), lty = 2,lwd=0.5)
+abline(v=which(rownames(short_term_table) == "+1"), lty = 2,lwd=0.5)
+abline(h=0, lwd=0.5)
+
+####
+
+tmp = cbind(no_project_var,some_project_var,project_IRATStableBB)[1:(nrow(no_project_var)-1),c(1, 4, 7, 10)]
+tmp[rownames(tmp) %in% as.character((-6):(-1)),] <- -tmp[rownames(tmp) %in% as.character((-6):(-1)),] 
+
+No_female = tmp[,1]
+Some_female = tmp[,2]
+Low_Diversity = tmp[,3]
+High_Diversity = tmp[,4]
+
+ylimit = c(min(No_female,Some_female,Low_Diversity,High_Diversity), 
+           max(No_female,Some_female,Low_Diversity,High_Diversity))
+
+plot(No_female, ylim = ylimit,axes=FALSE, type = "l", ylab = "CAR", xlab="Months",main="Panel B: Long Term CAR", lwd=1.4)
+axis(1,at=plot_tickers,labels=plot_xlabels,cex.axis=1.1,las=3)
+axis(2,cex.axis=1.1)
+lines(Some_female,lty = 2,lwd=1.6)
+lines(Low_Diversity,lty = 3,lwd=1.6)
+lines(High_Diversity,lty = 4,lwd=1.6)
+abline(v=which(reported_times_plots == "0"), lwd=0.5)
+abline(h=0, lwd=0.5)
+
+@
+\caption{Short run (Panel~A) and long run (Panel~B) average cumulative abnormal returns for four types of firms: a) those for which there is no females on the company board (solid lines), b) those for which there is at least one female (dashed lines), c) those for which the percentage of females on board was lower than the \Sexpr{100*quantile_project}$^{th}$ percentile of all female percentages across all firms that announced a buyback in the previous year (noted as ''Low Diversity'' in Table \ref{tbl:boarddiversitycharacteristics}) (dotted lines), d) those for which the percentage of females on board was higher than the \Sexpr{100*(1-quantile_project)}$^{th}$  percentile of all female percentages across all firms that announced a buyback in the previous year (noted as ''High Diversity'' in Table \ref{tbl:boarddiversitycharacteristics}) (dotted-dashed lines). The x-axis indicates days from the date of the event announcement in Panel~A, and months in Panel~B.}
+\label{fig:carfigs}
+\end{figure}
+
+\clearpage
+\bibliographystyle{jf}
+\bibliography{Bibliography}
+\end{document}
+
